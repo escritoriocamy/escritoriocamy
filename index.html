@@ -253,73 +253,6 @@
     .hero-badge{ align-self:flex-end; width:110px; height:110px; }
   }
 
-  /* ---------- HISTORIA ---------- */
-  .historia{
-    background:var(--cream)
-      radial-gradient(circle at 15% 20%, rgba(192,143,62,.06), transparent 45%);
-    padding:64px 20px 56px;
-    border-bottom:1px solid var(--line);
-  }
-  .historia-inner{ max-width:920px; margin:0 auto; text-align:center; }
-  .historia-title{
-    font-family:'Source Serif 4', serif;
-    font-weight:700;
-    font-size:clamp(24px, 3vw, 32px);
-    color:var(--olive-900);
-    margin:6px 0 14px;
-  }
-  .historia-lead{
-    font-family:'Inter', sans-serif;
-    font-size:15.5px;
-    line-height:1.7;
-    color:var(--ink-soft);
-    max-width:640px;
-    margin:0 auto 46px;
-  }
-
-  .timeline{
-    position:relative;
-    display:grid;
-    grid-template-columns:repeat(4, 1fr);
-    gap:22px;
-    text-align:left;
-  }
-  .timeline-line{
-    position:absolute;
-    top:9px; left:0; right:0;
-    height:2px;
-    background:linear-gradient(90deg, transparent, var(--gold-600) 8%, var(--gold-600) 92%, transparent);
-  }
-  .tl-item{ position:relative; padding-top:30px; }
-  .tl-dot{
-    position:absolute; top:2px; left:0;
-    width:16px; height:16px;
-    border-radius:50%;
-    background:var(--card);
-    border:3px solid var(--gold-600);
-  }
-  .tl-year{
-    font-family:'IBM Plex Mono', monospace;
-    font-weight:600;
-    font-size:13px;
-    letter-spacing:.04em;
-    color:var(--olive-900);
-    margin-bottom:6px;
-  }
-  .tl-item p{
-    font-family:'Inter', sans-serif;
-    font-size:13.5px;
-    line-height:1.55;
-    color:var(--ink-soft);
-    margin:0;
-  }
-  @media (max-width:760px){
-    .timeline{ grid-template-columns:1fr; gap:26px; padding-left:8px; }
-    .timeline-line{ top:0; bottom:0; left:7px; right:auto; width:2px; height:auto; background:linear-gradient(180deg, transparent, var(--gold-600) 6%, var(--gold-600) 94%, transparent); }
-    .tl-item{ padding-top:0; padding-left:28px; }
-    .tl-dot{ top:3px; left:0; }
-  }
-
   /* ---------- FILTERS ---------- */
   .filters{
     display:flex;
@@ -872,43 +805,6 @@
     </div>
   </section>
 
-  <section class="historia reveal" id="historia">
-    <div class="historia-inner">
-      <div class="hammer-divider">
-        <span class="ln"></span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l4 4-3 3-4-4z"/><path d="M2 22l7.5-7.5"/><path d="M17.5 2.5L21 6l-3 3-3.5-3.5z"/></svg>
-        <span class="ln"></span>
-      </div>
-      <div class="eyebrow" style="text-align:center;color:var(--gold-700)">Desde 1908</div>
-      <h2 class="historia-title">Más de un siglo haciendo negocios rurales</h2>
-      <p class="historia-lead">Escritorio Camy nació en San José como un escritorio rematador de campo, y hoy —cuatro generaciones después— sigue guiado por el mismo principio: la palabra vale tanto como la firma.</p>
-
-      <div class="timeline">
-        <div class="timeline-line"></div>
-        <div class="tl-item">
-          <div class="tl-year">1908</div>
-          <div class="tl-dot"></div>
-          <p>Fundación del escritorio. Los primeros remates a campo abierto, martillo en mano.</p>
-        </div>
-        <div class="tl-item">
-          <div class="tl-year">1950s</div>
-          <div class="tl-dot"></div>
-          <p>Segunda generación al frente. Se consolida como referente de la zona de San José.</p>
-        </div>
-        <div class="tl-item">
-          <div class="tl-year">1990s</div>
-          <div class="tl-dot"></div>
-          <p>Tercera generación. Se amplía a negocios de campos, herramientas y consignaciones.</p>
-        </div>
-        <div class="tl-item">
-          <div class="tl-year">Hoy</div>
-          <div class="tl-dot"></div>
-          <p>Cuarta generación. Misma seriedad de siempre, ahora también a un clic de distancia.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <section id="lotes" class="reveal">
     <nav class="filters" id="filters"></nav>
     <main class="grid" id="grid">
@@ -1023,7 +919,7 @@
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaQ49A_M3H3V-FSRdZ4Kb9lFmk4wnR8xlegdrndcuAa2Iku7_RptSh9UO-loJdK-8f3JyyQkc--n36/pub?output=csv";
 
 /* Link CSV publicado de la pestaña "Remates" (dejalo vacío "" para usar la lista fija de más abajo) */
-const REMATES_CSV_URL = "";
+const REMATES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaQ49A_M3H3V-FSRdZ4Kb9lFmk4wnR8xlegdrndcuAa2Iku7_RptSh9UO-loJdK-8f3JyyQkc--n36/pub?gid=111075238&single=true&output=csv";
 
 /* Número de WhatsApp del escritorio, código de país + número, sin espacios ni + */
 const WHATSAPP_NUMBER = "59899342965";
