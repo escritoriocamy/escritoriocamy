@@ -1022,6 +1022,9 @@
    ========================================================= */
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaQ49A_M3H3V-FSRdZ4Kb9lFmk4wnR8xlegdrndcuAa2Iku7_RptSh9UO-loJdK-8f3JyyQkc--n36/pub?output=csv";
 
+/* Link CSV publicado de la pestaña "Remates" (dejalo vacío "" para usar la lista fija de más abajo) */
+const REMATES_CSV_URL = "";
+
 /* Número de WhatsApp del escritorio, código de país + número, sin espacios ni + */
 const WHATSAPP_NUMBER = "59899342965";
 
@@ -1059,21 +1062,35 @@ document.getElementById('contactWhatsapp').href = `https://wa.me/${WHATSAPP_NUMB
 document.getElementById('waFloat').href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola Roger, tengo una consulta.')}`;
 
 /* =========================================================
-   PRÓXIMOS REMATES — editá esta lista a mano
+   PRÓXIMOS REMATES
+   Se cargan desde REMATES_CSV_URL si está configurado.
+   Si lo dejás vacío, se usa esta lista fija de respaldo.
    ========================================================= */
-const REMATES = [
+const REMATES_FALLBACK = [
   { dia:"14", mes:"Ago", titulo:"Remate de invierno", detalle:"Novillos y vaquillonas. Local de ferias, San José.", hora:"14:00 hs" },
   { dia:"28", mes:"Ago", titulo:"Feria mensual", detalle:"Terneros y ganado gordo. Consultar cantidad de lotes.", hora:"14:00 hs" },
 ];
 
-function renderRemates(){
+const MESES_ABR = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Set','Oct','Nov','Dic'];
+
+/* Convierte una fecha en distintos formatos (14/08/2026, 2026-08-14, 14 de agosto) a {dia, mes} */
+function parseFecha(str){
+  const s = String(str || '').trim();
+  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-]\d{2,4})?$/); // 14/08 o 14/08/2026
+  if(m) return { dia: m[1].padStart(2,'0'), mes: MESES_ABR[parseInt(m[2],10)-1] || '' };
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); // 2026-08-14 (formato típico de Sheets)
+  if(m) return { dia: m[3].padStart(2,'0'), mes: MESES_ABR[parseInt(m[2],10)-1] || '' };
+  return { dia: s || '—', mes: '' };
+}
+
+function renderRemates(list){
   const el = document.getElementById('rematesGrid');
   if(!el) return;
-  if(!REMATES.length){
+  if(!list || !list.length){
     el.innerHTML = '<div class="status" style="color:#cfcab5">Por el momento no hay remates agendados. Escribinos por WhatsApp para más información.</div>';
     return;
   }
-  el.innerHTML = REMATES.map(r => `
+  el.innerHTML = list.map(r => `
     <div class="remate-card">
       <div class="remate-date"><div class="d">${r.dia}</div><div class="m">${r.mes}</div></div>
       <div class="remate-body">
@@ -1083,7 +1100,33 @@ function renderRemates(){
       </div>
     </div>`).join('');
 }
-renderRemates();
+
+function loadRemates(){
+  if(!REMATES_CSV_URL || REMATES_CSV_URL.trim() === ""){
+    renderRemates(REMATES_FALLBACK);
+    return;
+  }
+  Papa.parse(REMATES_CSV_URL, {
+    download:true,
+    header:true,
+    skipEmptyLines:true,
+    complete:(results)=>{
+      const rows = results.data.map(row => {
+        const fechaRaw = row.fecha || row.Fecha || '';
+        const { dia, mes } = parseFecha(fechaRaw);
+        return {
+          dia, mes,
+          titulo: row.titulo || row.Titulo || row['Título'] || 'Remate',
+          detalle: row.detalle || row.Detalle || row.lugar || row.Lugar || '',
+          hora: row.hora || row.Hora || ''
+        };
+      });
+      renderRemates(rows.length ? rows : REMATES_FALLBACK);
+    },
+    error:()=>{ renderRemates(REMATES_FALLBACK); }
+  });
+}
+loadRemates();
 
 /* Revelado suave de secciones al hacer scroll */
 const revealObserver = new IntersectionObserver((entries) => {
@@ -1244,9 +1287,29 @@ INSTRUCCIONES — cómo conectar tu Google Sheet (gratis, sin código)
    La columna "estado" acepta: disponible / proximo / vendido
    (si se deja vacía, el lote se muestra como "Disponible").
 
-1b) Próximos remates: se editan directamente en este archivo, buscando
-   la lista "const REMATES = [...]" dentro del <script> y agregando o
-   quitando objetos con dia, mes, titulo, detalle y hora.
+1b) Próximos remates — dos opciones:
+
+   OPCIÓN A (recomendada): conectar una hoja de Google Sheets, igual
+   que hiciste con los lotes.
+     - En el mismo archivo de Sheets, creá una pestaña nueva llamada
+       por ejemplo "Remates" con estas columnas:
+         fecha | titulo | detalle | hora
+       Ejemplo de fila:
+         14/08/2026 | Remate de invierno | Novillos y vaquillonas, local de ferias | 14:00 hs
+     - Archivo > Compartir > Publicar en la web > elegí esa pestaña
+       ("Remates") > CSV > Publicar. Copiá ese link (va a ser distinto
+       al de los lotes, porque es otra pestaña).
+     - Pegá ese link en:
+         const REMATES_CSV_URL = "";
+       (ahora está vacío, más abajo en el <script>)
+     - La fecha podés escribirla como 14/08/2026, 14/08 o 2026-08-14,
+       cualquiera de esos formatos funciona.
+     - Mientras REMATES_CSV_URL esté vacío, se usa la lista fija de
+       ejemplo (REMATES_FALLBACK) que está en el código.
+
+   OPCIÓN B: editar a mano la lista REMATES_FALLBACK dentro del
+   <script>, agregando o quitando objetos con dia, mes, titulo,
+   detalle y hora.
 
 2) Archivo > Compartir > Publicar en la web > CSV > Publicar.
    Pegá el link en:
