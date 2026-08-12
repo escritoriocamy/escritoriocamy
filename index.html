@@ -885,19 +885,19 @@ if(SHEET_CSV_URL && SHEET_CSV_URL.trim() !== ""){
 /* =========================================================
    REMATES (agenda de remates, separado de los Lotes)
    ========================================================= */
-const SHEET_REMATES_CSV_URL = "";
+const SHEET_REMATES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaQ49A_M3H3V-FSRdZ4Kb9lFmk4wnR8xlegdrndcuAa2Iku7_RptSh9UO-loJdK-8f3JyyQkc--n36/pub?gid=111075238&single=true&output=csv";
 
 const rematesGrid = document.getElementById('rematesGrid');
 
-/* Valores de la columna "categoria/tipo" que indican que el remate es de herramientas */
-function esHerramientas(val){
-  if(!val) return false;
-  return String(val).trim().toLowerCase().includes('herramient');
+/* Detecta remates de herramientas leyendo el título (y el detalle como respaldo) */
+function esHerramientas(titulo, detalle){
+  const texto = `${titulo || ''} ${detalle || ''}`.toLowerCase();
+  return texto.includes('herramient');
 }
 
 const DEMO_REMATES = [
-  { fecha:"20/09/2026", tipo:"Hacienda", titulo:"Remate feria mensual", descripcion:"Vacunos de invernada y cría, todas las categorías." },
-  { fecha:"04/10/2026", tipo:"Herramientas", titulo:"Remate de maquinaria agrícola", descripcion:"Tractores, implementos y herramientas de campo." },
+  { fecha:"20/09/2026", titulo:"Remate feria mensual", detalle:"Vacunos de invernada y cría, todas las categorías.", hora:"14:00" },
+  { fecha:"04/10/2026", titulo:"Remate de Herramientas de campo", detalle:"Tractores, implementos y herramientas de campo.", hora:"" },
 ];
 
 function renderRemates(){
@@ -906,7 +906,7 @@ function renderRemates(){
     return;
   }
   rematesGrid.innerHTML = allRemates.map((r) => {
-    const herramientas = esHerramientas(r.tipo);
+    const herramientas = esHerramientas(r.titulo, r.detalle);
     const numero = herramientas ? WHATSAPP_HERRAMIENTAS : WHATSAPP_NUMBER;
     const nombre = herramientas ? 'Álvaro' : 'Roger';
     const mensaje = herramientas
@@ -916,13 +916,13 @@ function renderRemates(){
     <article class="lot${herramientas ? ' lot-featured' : ''}">
       <div class="lot-body">
         ${herramientas ? `<div class="media-tag tag-featured" style="position:static; display:inline-flex; margin-bottom:10px;">${ICONS.tag} Herramientas</div>` : ''}
-        <h3 class="lot-cat">${r.titulo || r.tipo || 'Remate'}</h3>
+        <h3 class="lot-cat">${r.titulo || 'Remate'}</h3>
         <div class="lot-underline"></div>
         <div class="lot-meta">
           ${r.fecha ? `<div class="row">${ICONS.tag}<span class="label">Fecha:</span><span class="value">${r.fecha}</span></div>` : ''}
-          ${r.tipo ? `<div class="row">${ICONS.cow}<span class="label">Tipo:</span><span class="value">${r.tipo}</span></div>` : ''}
+          ${r.hora ? `<div class="row">${ICONS.cow}<span class="label">Hora:</span><span class="value">${r.hora}</span></div>` : ''}
         </div>
-        ${r.descripcion ? `<p class="lot-note">${r.descripcion}</p>` : ''}
+        ${r.detalle ? `<p class="lot-note">${r.detalle}</p>` : ''}
         <a class="lot-whatsapp" target="_blank" rel="noopener"
            href="https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.1h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.14.82.84-3.06-.2-.31a8.2 8.2 0 0 1-1.26-4.4c0-4.55 3.71-8.26 8.27-8.26 2.21 0 4.28.86 5.84 2.42a8.19 8.19 0 0 1 2.42 5.84c0 4.56-3.71 8.28-8.27 8.28zm4.53-6.2c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.99-1.22-.73-.66-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.42-.14 0-.31-.01-.48-.01-.17 0-.43.06-.66.31-.23.25-.86.84-.86 2.05 0 1.2.88 2.37 1 2.53.12.17 1.73 2.64 4.2 3.7.59.25 1.05.4 1.4.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
@@ -946,9 +946,9 @@ function loadRematesFromSheet(){
     complete:(results)=>{
       allRemates = results.data.map(row => ({
         fecha: row.fecha || row.Fecha || '',
-        tipo: row.tipo || row.Tipo || row.categoria || row.Categoria || '',
         titulo: row.titulo || row.Titulo || row['Título'] || '',
-        descripcion: row.descripcion || row.Descripcion || row['Descripción'] || ''
+        detalle: row.detalle || row.Detalle || row.descripcion || row.Descripcion || row['Descripción'] || '',
+        hora: row.hora || row.Hora || ''
       }));
       if(allRemates.length === 0){
         rematesGrid.innerHTML = '<div class="status">La planilla de remates está vacía. Agregá filas y recargá esta página.</div>';
@@ -995,20 +995,20 @@ INSTRUCCIONES — cómo conectar tu Google Sheet (gratis, sin código)
    "Nosotros", buscá la sección <section class="section" id="nosotros">
    en este archivo y editá el texto entre las etiquetas <p>.
 
-6) REMATES (sección aparte, con su propia planilla):
-   Creá una hoja nueva en Google Sheets (puede ser otra pestaña del
-   mismo archivo, o uno nuevo) con estas columnas:
-     fecha | tipo | titulo | descripcion
+6) REMATES (sección aparte, con su propia planilla — ya conectada):
+   La hoja 2 de tu Google Sheet usa estas columnas:
+     fecha | titulo | detalle | hora
 
-   Publicala igual que la de lotes (Archivo > Compartir > Publicar
-   en la web > CSV > Publicar) y pegá ese link en:
-     const SHEET_REMATES_CSV_URL = "";
+   Ya está conectada acá:
+     const SHEET_REMATES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaQ49A_M3H3V-FSRdZ4Kb9lFmk4wnR8xlegdrndcuAa2Iku7_RptSh9UO-loJdK-8f3JyyQkc--n36/pub?gid=111075238&single=true&output=csv";
 
-   Si en la columna "tipo" escribís algo que contenga la palabra
-   "herramientas" (por ejemplo "Herramientas" o "Remate de
-   herramientas"), esa tarjeta va a mostrar el sello "Herramientas"
-   y el botón de WhatsApp va a ir directo a Álvaro Franco en vez de
-   a Roger.
+   Si en el "titulo" (o en el "detalle") escribís la palabra
+   "herramientas" (por ejemplo "Remate de Herramientas Virtual"),
+   esa tarjeta muestra el sello "Herramientas" y el botón de
+   WhatsApp va directo a Álvaro Franco en vez de a Roger.
+
+   Para agregar o editar remates, solo editá esa hoja de tu Sheet
+   y recargá la web — no hace falta tocar este archivo de nuevo.
 ========================================================= -->
 
 </body>
