@@ -995,7 +995,7 @@ function renderRemates(){
       ? `Hola Álvaro, quiero anotar un lote para el remate de herramientas "${r.titulo || ''}".`
       : `Hola Roger, quiero anotar un lote para el remate "${r.titulo || ''}".`;
     return `
-    <article class="lot${herramientas ? ' lot-featured' : ''}">
+    <article class="lot${herramientas ? '' : ' lot-featured'}">
       <div class="lot-body">
         <div class="media-tag tag-status disponible" style="position:static; display:inline-flex; margin-bottom:10px; margin-right:8px;">Próximo remate</div>
         ${herramientas ? `<div class="media-tag tag-featured" style="position:static; display:inline-flex; margin-bottom:10px;">${ICONS.tag} Herramientas</div>` : ''}
