@@ -875,7 +875,6 @@ function render(){
     <article class="lot${l.destacado ? ' lot-featured' : ''}">
       <div style="position:relative">
         ${media.html}
-        ${media.hasVideo ? `<div class="play-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>` : ''}
         <div class="media-tag tag-lote">${ICONS.tag} LOTE ${l.lote || '-'}</div>
         <div class="media-tag tag-status ${estadoClass}">${estado}</div>
         ${l.destacado ? `<div class="media-tag tag-featured">★ Destacado</div>` : ''}
