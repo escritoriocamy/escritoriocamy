@@ -910,46 +910,7 @@ if(SHEET_REMATES_CSV_URL && SHEET_REMATES_CSV_URL.trim() !== ""){
 } else {
   loadRematesDemo();
 }
-</script>!-- =========================================================
-INSTRUCCIONES — cómo conectar tu Google Sheet (gratis, sin código)
-
-1) Columnas de la planilla (raza, comentario y destacado son opcionales):
-     lote | categoria | cabezas | peso | ubicacion | video | raza | comentario | destacado
-
-   La columna "destacado" acepta: si / sí / true / 1 / x
-   Los lotes marcados como destacados aparecen primero, pero siempre
-   dentro de su propia categoría (por ejemplo, entre las Vaquillonas).
-
-2) Archivo > Compartir > Publicar en la web > CSV > Publicar.
-   Pegá el link en:
-     const SHEET_CSV_URL = "";
-
-3) Número de WhatsApp (código de país + número, sin + ni espacios):
-     const WHATSAPP_NUMBER = "59899342965";
-
-4) Subilo a Netlify (Deploys > arrastrar el archivo) para
-   actualizar escritoriocamy.netlify.app
-
-5) El menú "Nosotros" y "Contacto" son secciones de la misma
-   página (no páginas separadas). Si querés cambiar el texto de
-   "Nosotros", buscá la sección <section class="section" id="nosotros">
-   en este archivo y editá el texto entre las etiquetas <p>.
-
-6) REMATES (sección aparte, con su propia planilla — ya conectada):
-   La hoja 2 de tu Google Sheet usa estas columnas:
-     fecha | titulo | detalle | hora
-
-   Ya está conectada acá:
-     const SHEET_REMATES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaQ49A_M3H3V-FSRdZ4Kb9lFmk4wnR8xlegdrndcuAa2Iku7_RptSh9UO-loJdK-8f3JyyQkc--n36/pub?gid=111075238&single=true&output=csv";
-
-   Si en el "titulo" (o en el "detalle") escribís la palabra
-   "herramientas" (por ejemplo "Remate de Herramientas Virtual"),
-   esa tarjeta muestra el sello "Herramientas" y el botón de
-   WhatsApp va directo a Álvaro Franco en vez de a Roger.
-
-   Para agregar o editar remates, solo editá esa hoja de tu Sheet
-   y recargá la web — no hace falta tocar este archivo de nuevo.
-========================================================= -->
+</script>
 
 </body>
 </html>
