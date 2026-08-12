@@ -462,6 +462,49 @@
   .contact-info .row strong{ color:var(--ink); }
   .contact-info a{ color:inherit; text-decoration:underline; }
 
+  /* ---------- MERCADOS Y COTIZACIONES ---------- */
+  .mercados-grid{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:24px;
+    text-align:left;
+    margin-top:32px;
+  }
+  .mercado-block h3{
+    font-family:'Source Serif 4', serif;
+    font-size:19px;
+    color:var(--olive-900);
+    margin:0 0 12px;
+  }
+  .mercado-table{
+    width:100%;
+    border-collapse:collapse;
+    font-family:'Inter', sans-serif;
+    font-size:13.5px;
+  }
+  .mercado-table th{
+    text-align:left;
+    font-weight:700;
+    color:var(--ink);
+    border-bottom:2px solid var(--line);
+    padding:8px 6px;
+  }
+  .mercado-table td{
+    padding:8px 6px;
+    border-bottom:1px solid var(--line);
+    color:var(--ink-soft, #555);
+  }
+  .mercado-table td:first-child{ color:var(--ink); font-weight:600; }
+  .mercado-nota{
+    font-family:'Inter', sans-serif;
+    font-size:12px;
+    color:var(--ink-soft, #555);
+    margin-top:10px;
+  }
+  @media(max-width:820px){
+    .mercados-grid{ grid-template-columns:1fr; }
+  }
+
   /* ---------- NOSOTROS: MISION / VISION / VALORES ---------- */
   .nosotros-grid{
     display:grid;
@@ -592,10 +635,7 @@
         <li class="has-dropdown">
           <a href="#" id="infoDropdownToggle">Información ▾</a>
           <ul class="dropdown">
-            <li><a href="https://www.brou.com.uy/cotizaciones" target="_blank" rel="noopener">Cotización BROU</a></li>
-            <li><a href="https://www.inac.uy" target="_blank" rel="noopener">Faena (INAC)</a></li>
-            <li><a href="https://www.acg.com.uy" target="_blank" rel="noopener">Mercado (ACG)</a></li>
-            <li><a id="navHerramientas" target="_blank" rel="noopener">Remates de herramientas</a></li>
+            <li><a href="#mercados">Cotizaciones y mercados</a></li>
           </ul>
         </li>
         <li><a href="#nosotros">Nosotros</a></li>
@@ -646,6 +686,35 @@
     <main class="grid" id="rematesGrid" style="margin-top:28px">
       <div class="status">Cargando remates…</div>
     </main>
+  </section>
+
+  <section class="section" id="mercados">
+    <h2>Cotizaciones y Mercados</h2>
+    <div class="section-rule"></div>
+    <div class="mercados-grid">
+      <div class="mercado-block">
+        <h3>Mercados ACG</h3>
+        <table class="mercado-table" id="tablaACG">
+          <thead><tr><th>Categoría</th><th>En pie</th><th>Segunda</th></tr></thead>
+          <tbody><tr><td colspan="3" class="status">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="mercado-block">
+        <h3>Faenas INAC</h3>
+        <table class="mercado-table" id="tablaINAC">
+          <thead><tr><th>Categoría</th><th>Actual</th><th>Anterior</th></tr></thead>
+          <tbody><tr><td colspan="3" class="status">Cargando…</td></tr></tbody>
+        </table>
+        <p class="mercado-nota" id="notaINAC"></p>
+      </div>
+      <div class="mercado-block">
+        <h3>Cotizaciones BROU</h3>
+        <table class="mercado-table" id="tablaBROU">
+          <thead><tr><th>Moneda</th><th>Compra</th><th>Venta</th></tr></thead>
+          <tbody><tr><td colspan="3" class="status">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </section>
 
   <section class="section" id="nosotros">
@@ -734,7 +803,6 @@ let activeCategory = "Todos";
 
 document.getElementById('navWhatsapp').href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola Roger, tengo una consulta sobre los lotes.')}`;
 document.getElementById('contactWhatsapp').href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola Roger, tengo una consulta.')}`;
-document.getElementById('navHerramientas').href = `https://wa.me/${WHATSAPP_HERRAMIENTAS}?text=${encodeURIComponent('Hola Álvaro, tengo una consulta sobre remates de herramientas.')}`;
 
 /* Desplegable "Información" del menú: toggle por click además del hover, para que funcione bien en celulares */
 const infoToggle = document.getElementById('infoDropdownToggle');
@@ -968,6 +1036,104 @@ if(SHEET_REMATES_CSV_URL && SHEET_REMATES_CSV_URL.trim() !== ""){
 } else {
   loadRematesDemo();
 }
+
+/* =========================================================
+   MERCADOS Y COTIZACIONES (ACG, INAC, BROU)
+   Cada tabla lee su propia hoja de Google Sheets, publicada como CSV.
+   Dejá el link vacío ("") para que se muestren los datos de ejemplo.
+   ========================================================= */
+const SHEET_ACG_CSV_URL = "";
+const SHEET_INAC_CSV_URL = "";
+const SHEET_BROU_CSV_URL = "";
+
+const DEMO_ACG = [
+  { categoria:"Novillos", en_pie:"U$S 2.65", segunda:"U$S 5.81" },
+  { categoria:"Vacas", en_pie:"U$S 2.32", segunda:"U$S 5.42" },
+  { categoria:"Vaquillonas", en_pie:"U$S 2.56", segunda:"U$S 5.68" },
+];
+const DEMO_INAC = [
+  { categoria:"Bovinos", actual:"38.894", anterior:"42.548" },
+  { categoria:"Ovinos", actual:"38.894", anterior:"380" },
+];
+const DEMO_INAC_NOTA = "Datos de ejemplo — conectá tu planilla para ver la semana real.";
+const DEMO_BROU = [
+  { moneda:"Dólar", compra:"39,10", venta:"41,50" },
+  { moneda:"Argentino", compra:"0,02", venta:"0,20" },
+  { moneda:"Real", compra:"6,90", venta:"6,90" },
+];
+
+function pintarTabla(tbodyEl, filas, columnas){
+  if(!filas || filas.length === 0){
+    tbodyEl.innerHTML = `<tr><td colspan="${columnas.length}" class="status">Todavía no hay datos cargados.</td></tr>`;
+    return;
+  }
+  tbodyEl.innerHTML = filas.map(fila =>
+    `<tr>${columnas.map(col => `<td>${fila[col] || '—'}</td>`).join('')}</tr>`
+  ).join('');
+}
+
+function cargarMercado({url, demoData, demoNota, tbodyId, notaId, columnas, mapRow}){
+  const tbody = document.querySelector(`#${tbodyId} tbody`);
+  if(!url || url.trim() === ""){
+    pintarTabla(tbody, demoData, columnas);
+    if(notaId && demoNota) document.getElementById(notaId).textContent = demoNota;
+    return;
+  }
+  Papa.parse(url, {
+    download:true,
+    header:true,
+    skipEmptyLines:true,
+    complete:(results)=>{
+      const filas = results.data.map(mapRow);
+      pintarTabla(tbody, filas, columnas);
+      if(notaId){
+        const conNota = results.data.find(r => (r.nota || r.Nota || '').trim() !== '');
+        document.getElementById(notaId).textContent = conNota ? (conNota.nota || conNota.Nota) : '';
+      }
+    },
+    error:()=>{
+      tbody.innerHTML = `<tr><td colspan="${columnas.length}" class="status">No se pudo cargar la planilla.</td></tr>`;
+    }
+  });
+}
+
+cargarMercado({
+  url: SHEET_ACG_CSV_URL,
+  demoData: DEMO_ACG,
+  tbodyId: 'tablaACG',
+  columnas: ['categoria','en_pie','segunda'],
+  mapRow: row => ({
+    categoria: row.categoria || row.Categoria || row['Categoría'] || '',
+    en_pie: row.en_pie || row['En pie'] || row.enpie || '',
+    segunda: row.segunda || row.Segunda || ''
+  })
+});
+
+cargarMercado({
+  url: SHEET_INAC_CSV_URL,
+  demoData: DEMO_INAC,
+  demoNota: DEMO_INAC_NOTA,
+  tbodyId: 'tablaINAC',
+  notaId: 'notaINAC',
+  columnas: ['categoria','actual','anterior'],
+  mapRow: row => ({
+    categoria: row.categoria || row.Categoria || row['Categoría'] || '',
+    actual: row.actual || row.Actual || '',
+    anterior: row.anterior || row.Anterior || ''
+  })
+});
+
+cargarMercado({
+  url: SHEET_BROU_CSV_URL,
+  demoData: DEMO_BROU,
+  tbodyId: 'tablaBROU',
+  columnas: ['moneda','compra','venta'],
+  mapRow: row => ({
+    moneda: row.moneda || row.Moneda || '',
+    compra: row.compra || row.Compra || '',
+    venta: row.venta || row.Venta || ''
+  })
+});
 </script>
 
 <!-- =========================================================
@@ -1009,6 +1175,42 @@ INSTRUCCIONES — cómo conectar tu Google Sheet (gratis, sin código)
 
    Para agregar o editar remates, solo editá esa hoja de tu Sheet
    y recargá la web — no hace falta tocar este archivo de nuevo.
+
+7) MERCADOS Y COTIZACIONES (tablas ACG, INAC, BROU — DENTRO de tu web,
+   no links que sacan al usuario a otro sitio):
+
+   Creá 3 hojas nuevas (pestañas) en tu Google Sheets, una para cada
+   tabla, con estas columnas exactas:
+
+   a) Mercados ACG:
+        categoria | en_pie | segunda
+      Ejemplo de filas: Novillos | U$S 2.65 | U$S 5.81
+
+   b) Faenas INAC:
+        categoria | actual | anterior | nota
+      "nota" es opcional: poné el texto "Datos de la semana del
+      08/08/2026" en la primera fila, para que aparezca debajo
+      de la tabla.
+
+   c) Cotizaciones BROU:
+        moneda | compra | venta
+      Ejemplo de filas: Dólar | 39,10 | 41,50
+
+   Publicá cada una por separado (Archivo > Compartir > Publicar en
+   la web > elegí la hoja correspondiente > CSV > Publicar) y pegá
+   cada link acá:
+     const SHEET_ACG_CSV_URL = "";
+     const SHEET_INAC_CSV_URL = "";
+     const SHEET_BROU_CSV_URL = "";
+
+   Mientras dejes esos links vacíos, la web muestra datos de ejemplo
+   para que puedas ver cómo va a quedar. Apenas pegues los 3 links,
+   las tablas van a mostrar tus valores reales, y de ahí en más solo
+   tenés que actualizar los números en esas 3 hojas — la web los va
+   a reflejar sola, sin que haya que tocar este archivo de nuevo.
+
+   El menú "Información" ahora tiene un solo link ("Cotizaciones y
+   mercados") que baja directo a esta sección, dentro de tu misma web.
 ========================================================= -->
 
 </body>
