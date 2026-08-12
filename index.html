@@ -521,7 +521,34 @@
   }
 
   @media (max-width:860px){
-    .nav-links{ display:none; }
+    .nav-links{
+      display:none;
+      position:absolute;
+      top:100%; left:0; right:0;
+      flex-direction:column;
+      gap:0;
+      background:var(--olive-900);
+      padding:8px 20px 16px;
+      margin:0;
+      box-shadow:0 8px 16px rgba(0,0,0,.2);
+    }
+    .nav-links.open{ display:flex; }
+    .nav-links li{ width:100%; }
+    .nav-links a{
+      padding:12px 4px;
+      border-bottom:1px solid rgba(255,255,255,.1);
+      width:100%;
+    }
+    .has-dropdown .dropdown{
+      display:block;
+      position:static;
+      box-shadow:none;
+      border:none;
+      background:rgba(0,0,0,.15);
+      border-radius:6px;
+      margin:4px 0 8px;
+    }
+    .has-dropdown .dropdown li a{ color:#eae6d6; padding:10px 14px; }
     .nav-burger{ display:block; }
     .nav-cta span{ display:none; }
     .nav-cta{ padding:10px; }
@@ -536,6 +563,7 @@
       <ul class="nav-links">
         <li><a href="#inicio">Inicio</a></li>
         <li><a href="#lotes">Lotes</a></li>
+        <li><a href="#remates">Remates</a></li>
         <li class="has-dropdown">
           <a href="#" id="infoDropdownToggle">Información ▾</a>
           <ul class="dropdown">
@@ -579,6 +607,15 @@
     <nav class="filters" id="filters"></nav>
     <main class="grid" id="grid">
       <div class="status">Cargando lotes…</div>
+    </main>
+  </section>
+
+  <section class="section" id="remates">
+    <h2>Remates</h2>
+    <div class="section-rule"></div>
+    <p>Próximos remates del escritorio. Los remates de <strong>herramientas</strong> tienen consulta directa por WhatsApp con Álvaro Franco.</p>
+    <main class="grid" id="rematesGrid" style="margin-top:28px">
+      <div class="status">Cargando remates…</div>
     </main>
   </section>
 
@@ -676,6 +713,20 @@ if(infoToggle){
   infoToggle.addEventListener('click', (e) => {
     e.preventDefault();
     infoToggle.closest('.has-dropdown').classList.toggle('open');
+  });
+}
+
+/* Menú hamburguesa (celular) */
+const burgerBtn = document.getElementById('burgerBtn');
+const navLinksEl = document.querySelector('.nav-links');
+if(burgerBtn && navLinksEl){
+  burgerBtn.addEventListener('click', () => {
+    navLinksEl.classList.toggle('open');
+  });
+  navLinksEl.querySelectorAll('a:not(#infoDropdownToggle)').forEach(link => {
+    link.addEventListener('click', () => {
+      navLinksEl.classList.remove('open');
+    });
   });
 }
 
@@ -801,6 +852,93 @@ if(SHEET_CSV_URL && SHEET_CSV_URL.trim() !== ""){
 } else {
   loadDemo();
 }
+
+/* =========================================================
+   REMATES (agenda de remates, separado de los Lotes)
+   ========================================================= */
+const SHEET_REMATES_CSV_URL = "";
+
+const rematesGrid = document.getElementById('rematesGrid');
+
+/* Valores de la columna "categoria/tipo" que indican que el remate es de herramientas */
+function esHerramientas(val){
+  if(!val) return false;
+  return String(val).trim().toLowerCase().includes('herramient');
+}
+
+const DEMO_REMATES = [
+  { fecha:"20/09/2026", tipo:"Hacienda", titulo:"Remate feria mensual", descripcion:"Vacunos de invernada y cría, todas las categorías." },
+  { fecha:"04/10/2026", tipo:"Herramientas", titulo:"Remate de maquinaria agrícola", descripcion:"Tractores, implementos y herramientas de campo." },
+];
+
+function renderRemates(){
+  if(!allRemates || allRemates.length === 0){
+    rematesGrid.innerHTML = '<div class="status">No hay remates cargados por el momento.</div>';
+    return;
+  }
+  rematesGrid.innerHTML = allRemates.map((r) => {
+    const herramientas = esHerramientas(r.tipo);
+    const numero = herramientas ? WHATSAPP_HERRAMIENTAS : WHATSAPP_NUMBER;
+    const nombre = herramientas ? 'Álvaro' : 'Roger';
+    const mensaje = herramientas
+      ? `Hola Álvaro, tengo una consulta sobre el remate de herramientas "${r.titulo || ''}".`
+      : `Hola Roger, tengo una consulta sobre el remate "${r.titulo || ''}".`;
+    return `
+    <article class="lot${herramientas ? ' lot-featured' : ''}">
+      <div class="lot-body">
+        ${herramientas ? `<div class="media-tag tag-featured" style="position:static; display:inline-flex; margin-bottom:10px;">${ICONS.tag} Herramientas</div>` : ''}
+        <h3 class="lot-cat">${r.titulo || r.tipo || 'Remate'}</h3>
+        <div class="lot-underline"></div>
+        <div class="lot-meta">
+          ${r.fecha ? `<div class="row">${ICONS.tag}<span class="label">Fecha:</span><span class="value">${r.fecha}</span></div>` : ''}
+          ${r.tipo ? `<div class="row">${ICONS.cow}<span class="label">Tipo:</span><span class="value">${r.tipo}</span></div>` : ''}
+        </div>
+        ${r.descripcion ? `<p class="lot-note">${r.descripcion}</p>` : ''}
+        <a class="lot-whatsapp" target="_blank" rel="noopener"
+           href="https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.1h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.14.82.84-3.06-.2-.31a8.2 8.2 0 0 1-1.26-4.4c0-4.55 3.71-8.26 8.27-8.26 2.21 0 4.28.86 5.84 2.42a8.19 8.19 0 0 1 2.42 5.84c0 4.56-3.71 8.28-8.27 8.28zm4.53-6.2c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.99-1.22-.73-.66-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.42-.14 0-.31-.01-.48-.01-.17 0-.43.06-.66.31-.23.25-.86.84-.86 2.05 0 1.2.88 2.37 1 2.53.12.17 1.73 2.64 4.2 3.7.59.25 1.05.4 1.4.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
+          Consultar por WhatsApp a ${nombre}
+        </a>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+function loadRematesDemo(){
+  allRemates = DEMO_REMATES;
+  renderRemates();
+}
+
+function loadRematesFromSheet(){
+  Papa.parse(SHEET_REMATES_CSV_URL, {
+    download:true,
+    header:true,
+    skipEmptyLines:true,
+    complete:(results)=>{
+      allRemates = results.data.map(row => ({
+        fecha: row.fecha || row.Fecha || '',
+        tipo: row.tipo || row.Tipo || row.categoria || row.Categoria || '',
+        titulo: row.titulo || row.Titulo || row['Título'] || '',
+        descripcion: row.descripcion || row.Descripcion || row['Descripción'] || ''
+      }));
+      if(allRemates.length === 0){
+        rematesGrid.innerHTML = '<div class="status">La planilla de remates está vacía. Agregá filas y recargá esta página.</div>';
+        return;
+      }
+      renderRemates();
+    },
+    error:()=>{
+      rematesGrid.innerHTML = '<div class="status">No se pudo cargar la planilla de remates. Revisá que el link de Google Sheets esté publicado correctamente.</div>';
+    }
+  });
+}
+
+let allRemates = [];
+if(SHEET_REMATES_CSV_URL && SHEET_REMATES_CSV_URL.trim() !== ""){
+  loadRematesFromSheet();
+} else {
+  loadRematesDemo();
+}
 </script>
 
 <!-- =========================================================
@@ -827,6 +965,21 @@ INSTRUCCIONES — cómo conectar tu Google Sheet (gratis, sin código)
    página (no páginas separadas). Si querés cambiar el texto de
    "Nosotros", buscá la sección <section class="section" id="nosotros">
    en este archivo y editá el texto entre las etiquetas <p>.
+
+6) REMATES (sección aparte, con su propia planilla):
+   Creá una hoja nueva en Google Sheets (puede ser otra pestaña del
+   mismo archivo, o uno nuevo) con estas columnas:
+     fecha | tipo | titulo | descripcion
+
+   Publicala igual que la de lotes (Archivo > Compartir > Publicar
+   en la web > CSV > Publicar) y pegá ese link en:
+     const SHEET_REMATES_CSV_URL = "";
+
+   Si en la columna "tipo" escribís algo que contenga la palabra
+   "herramientas" (por ejemplo "Herramientas" o "Remate de
+   herramientas"), esa tarjeta va a mostrar el sello "Herramientas"
+   y el botón de WhatsApp va a ir directo a Álvaro Franco en vez de
+   a Roger.
 ========================================================= -->
 
 </body>
