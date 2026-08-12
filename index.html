@@ -209,6 +209,8 @@
     color:#fff;
   }
   .chip.active svg{ opacity:1; }
+  .chip-featured{ border-color:#c99a2e; color:#96731c; }
+  .chip-featured.active{ background:#c99a2e; border-color:#c99a2e; color:#fff; }
 
   /* ---------- GRID ---------- */
   .grid{
@@ -629,10 +631,14 @@ function embedMedia(url){
 function render(){
   const items = activeCategory === "Todos"
     ? allLots
-    : allLots.filter(l => l.categoria === activeCategory);
+    : activeCategory === "Destacados"
+      ? allLots.filter(l => l.destacado === true)
+      : allLots.filter(l => l.categoria === activeCategory);
 
   if(items.length === 0){
-    grid.innerHTML = '<div class="status">No hay lotes cargados todavía en esta categoría.</div>';
+    grid.innerHTML = activeCategory === "Destacados"
+      ? '<div class="status">Todavía no hay lotes marcados como destacados.</div>'
+      : '<div class="status">No hay lotes cargados todavía en esta categoría.</div>';
     return;
   }
 
@@ -670,9 +676,10 @@ function render(){
 }
 
 function buildFilters(){
-  const cats = ["Todos", ...new Set(allLots.map(l => l.categoria).filter(Boolean))];
+  const hasFeatured = allLots.some(l => l.destacado === true);
+  const cats = ["Todos", ...(hasFeatured ? ["Destacados"] : []), ...new Set(allLots.map(l => l.categoria).filter(Boolean))];
   filtersEl.innerHTML = cats.map(c =>
-    `<button class="chip ${c===activeCategory?'active':''}" data-cat="${c}">${ICONS.cow}${c}</button>`
+    `<button class="chip ${c==='Destacados' ? 'chip-featured' : ''} ${c===activeCategory?'active':''}" data-cat="${c}">${c === 'Destacados' ? '★' : ICONS.cow}${c}</button>`
   ).join('');
   filtersEl.querySelectorAll('.chip').forEach(btn => {
     btn.addEventListener('click', () => {
