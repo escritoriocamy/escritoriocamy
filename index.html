@@ -120,7 +120,9 @@
     overflow:hidden;
     padding:70px 20px 64px;
     background: linear-gradient(160deg, rgba(28,46,31,.88) 0%, rgba(20,32,15,.85) 55%, rgba(20,32,15,.92) 100%);
+    transition: height .12s linear, min-height .12s linear;
   }
+  .hero-text, .hero-badge{ transition: opacity .12s linear; }
   .hero-video{
     position:absolute;
     inset:0;
@@ -857,6 +859,51 @@ if(burgerBtn && navLinksEl){
     });
   });
 }
+
+/* Achicar el hero (y el video) a medida que se hace scroll */
+(function(){
+  const hero = document.querySelector('.hero');
+  if(!hero) return;
+
+  const SHRINK_DISTANCE = 350; // px de scroll para llegar al tamaño mínimo
+  const MIN_RATIO = 0.5;       // el hero se achica hasta el 50% de su alto original
+  let startHeight = 0;
+  let minHeight = 0;
+
+  function measure(){
+    hero.style.height = '';
+    hero.style.minHeight = '';
+    startHeight = hero.offsetHeight;
+    minHeight = Math.max(startHeight * MIN_RATIO, 220);
+  }
+
+  function update(){
+    const scrollY = window.scrollY || window.pageYOffset;
+    const progress = Math.min(scrollY / SHRINK_DISTANCE, 1);
+    const h = startHeight - (startHeight - minHeight) * progress;
+    hero.style.height = h + 'px';
+    hero.style.minHeight = h + 'px';
+
+    const heroText = hero.querySelector('.hero-text');
+    if(heroText){ heroText.style.opacity = String(1 - progress * 0.6); }
+    const heroBadge = hero.querySelector('.hero-badge');
+    if(heroBadge){ heroBadge.style.opacity = String(1 - progress); }
+  }
+
+  let ticking = false;
+  function onScroll(){
+    if(!ticking){
+      window.requestAnimationFrame(() => { update(); ticking = false; });
+      ticking = true;
+    }
+  }
+
+  window.addEventListener('scroll', onScroll, { passive:true });
+  window.addEventListener('resize', () => { measure(); update(); });
+
+  measure();
+  update();
+})();
 
 const ICONS = {
   cow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10c-1.5 0-2-1.5-1-2.5S5 6 6 7l1 1M20 10c1.5 0 2-1.5 1-2.5S19 6 18 7l-1 1"/><path d="M6 12c0-3 2.5-5 6-5s6 2 6 5v3c0 3-2.5 6-6 6s-6-3-6-6v-3z"/><circle cx="9.5" cy="12.5" r=".6" fill="currentColor"/><circle cx="14.5" cy="12.5" r=".6" fill="currentColor"/></svg>',
