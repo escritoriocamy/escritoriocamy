@@ -898,8 +898,21 @@ const ICONS = {
   pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-7.4 7-12a7 7 0 10-14 0c0 4.6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>',
   tag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12.5l-8-8H4v8.5l8 8 8.5-8.5z"/><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/></svg>',
   video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M22 8.5l-6 3.5 6 3.5v-7z"/></svg>',
-  novideo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l19 19M16 6h-2M14 18H4a2 2 0 01-2-2V8a2 2 0 012-2h2M22 8.5l-6 3.5"/></svg>'
+  novideo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l19 19M16 6h-2M14 18H4a2 2 0 01-2-2V8a2 2 0 012-2h2M22 8.5l-6 3.5"/></svg>',
+  sheep: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9c-1 0-2-1-1.5-2S6 5.5 7 6.3M18 9c1 0 2-1 1.5-2S17 5.5 16 6.3"/><path d="M7 11c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke-linecap="round"/><circle cx="7.2" cy="10.5" r="1.6"/><circle cx="10.6" cy="9.6" r="1.6"/><circle cx="14" cy="9.6" r="1.6"/><circle cx="17.2" cy="10.5" r="1.6"/><circle cx="10.5" cy="12.3" r="1.6"/><circle cx="13.7" cy="12.3" r="1.6"/><circle cx="12.1" cy="14" r="1.7"/><path d="M9 15.5v2M15 15.5v2" stroke-linecap="round"/><circle cx="10.5" cy="11.2" r=".5" fill="currentColor" stroke="none"/><circle cx="13.5" cy="11.2" r=".5" fill="currentColor" stroke="none"/></svg>'
 };
+
+/* Detecta si una categoría es ovina (oveja, ovino, cordero, borrego, carnero, capón, etc.)
+   buscando palabras clave dentro del texto. Si no matchea ninguna, usa el ícono de vaca por defecto.
+   Así no hace falta estandarizar el texto de la categoría en el Sheets. */
+const SHEEP_KEYWORDS = ['oveja', 'ovino', 'ovina', 'cordero', 'borrego', 'carnero', 'capon', 'capón', 'lanar'];
+function isSheepCategory(categoria){
+  const c = (categoria || '').toLowerCase();
+  return SHEEP_KEYWORDS.some(kw => c.includes(kw));
+}
+function getCategoryIcon(categoria){
+  return isSheepCategory(categoria) ? ICONS.sheep : ICONS.cow;
+}
 
 function embedMedia(url){
   if(!url) return { html:'<div class="lot-media empty">Sin video</div>', hasVideo:false };
@@ -915,7 +928,9 @@ function render(){
     ? allLots
     : activeCategory === "Destacados"
       ? allLots.filter(l => l.destacado === true)
-      : allLots.filter(l => l.categoria === activeCategory);
+      : activeCategory === "Ovinos"
+        ? allLots.filter(l => isSheepCategory(l.categoria))
+        : allLots.filter(l => l.categoria === activeCategory);
 
   if(items.length === 0){
     grid.innerHTML = activeCategory === "Destacados"
@@ -970,9 +985,10 @@ function render(){
 
 function buildFilters(){
   const hasFeatured = allLots.some(l => l.destacado === true);
-  const cats = ["Todos", ...(hasFeatured ? ["Destacados"] : []), ...new Set(allLots.map(l => l.categoria).filter(Boolean))];
+  const hasSheep = allLots.some(l => isSheepCategory(l.categoria));
+  const cats = ["Todos", ...(hasFeatured ? ["Destacados"] : []), ...(hasSheep ? ["Ovinos"] : []), ...new Set(allLots.map(l => l.categoria).filter(Boolean))];
   filtersEl.innerHTML = cats.map(c =>
-    `<button class="chip ${c==='Destacados' ? 'chip-featured' : ''} ${c===activeCategory?'active':''}" data-cat="${c}">${c === 'Destacados' ? '★' : ICONS.cow}${c}</button>`
+    `<button class="chip ${c==='Destacados' ? 'chip-featured' : ''} ${c===activeCategory?'active':''}" data-cat="${c}">${c === 'Destacados' ? '★' : c === 'Ovinos' ? ICONS.sheep : getCategoryIcon(c)}${c}</button>`
   ).join('');
   filtersEl.querySelectorAll('.chip').forEach(btn => {
     btn.addEventListener('click', () => {
