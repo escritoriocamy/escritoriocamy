@@ -444,6 +444,125 @@
   .lot-whatsapp:hover{ background:var(--olive-800); }
   .lot-whatsapp svg{ width:16px; height:16px; flex-shrink:0; }
 
+  /* ---------- Modal de oferta ---------- */
+  .bid-overlay{
+    position:fixed; inset:0;
+    background:rgba(20,32,15,.55);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:20px;
+    z-index:100;
+  }
+  .bid-overlay.open{ display:flex; }
+  .bid-card{
+    background:#fff;
+    border-radius:14px;
+    width:100%; max-width:400px;
+    padding:26px 24px 22px;
+    position:relative;
+    max-height:90vh;
+    overflow-y:auto;
+  }
+  .bid-close{
+    position:absolute; top:14px; right:14px;
+    width:30px; height:30px;
+    border:none; background:#f0ede2;
+    border-radius:50%;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--ink-soft);
+    font-size:18px;
+    line-height:1;
+  }
+  .bid-close:hover{ background:#e6e2d3; }
+  .bid-title{
+    font-family:'Source Serif 4', serif;
+    font-weight:700;
+    font-size:20px;
+    color:var(--ink);
+    margin:0 0 4px;
+    padding-right:24px;
+  }
+  .bid-subtitle{
+    font-family:'Inter', sans-serif;
+    font-size:13px;
+    color:var(--ink-soft);
+    margin:0 0 18px;
+  }
+  .bid-field{ margin-bottom:14px; }
+  .bid-field label{
+    display:block;
+    font-family:'Inter', sans-serif;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--ink);
+    margin-bottom:5px;
+  }
+  .bid-field input{
+    width:100%;
+    box-sizing:border-box;
+    padding:10px 12px;
+    border:1.5px solid #e0dccb;
+    border-radius:8px;
+    font-family:'Inter', sans-serif;
+    font-size:14.5px;
+    color:var(--ink);
+    background:#fdfcf7;
+  }
+  .bid-field input:focus{ outline:none; border-color:var(--gold-600); }
+  .bid-current{
+    font-family:'Inter', sans-serif;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin:-6px 0 16px;
+  }
+  .bid-error{
+    font-family:'Inter', sans-serif;
+    font-size:12.5px;
+    color:#b23b3b;
+    background:#fbeceb;
+    border-radius:8px;
+    padding:9px 11px;
+    margin-bottom:14px;
+    display:none;
+  }
+  .bid-error.show{ display:block; }
+  .bid-success{
+    text-align:center;
+    padding:10px 0 4px;
+  }
+  .bid-success svg{ width:40px; height:40px; color:var(--gold-600); margin-bottom:10px; }
+  .bid-success p{
+    font-family:'Inter', sans-serif;
+    font-size:14px;
+    color:var(--ink);
+    margin:0 0 4px;
+  }
+  .bid-submit{
+    width:100%;
+    padding:12px 14px;
+    border:none;
+    border-radius:10px;
+    background:var(--olive-900);
+    color:#fff;
+    font-family:'Inter', sans-serif;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    transition:background .15s ease;
+  }
+  .bid-submit:hover{ background:var(--olive-800); }
+  .bid-submit:disabled{ opacity:.6; cursor:not-allowed; }
+  .bid-wa-fallback{
+    display:block;
+    text-align:center;
+    margin-top:14px;
+    font-family:'Inter', sans-serif;
+    font-size:12.5px;
+    color:var(--ink-soft);
+  }
+  .bid-wa-fallback a{ color:var(--gold-700); font-weight:700; text-decoration:underline; }
+
   .status{
     text-align:center;
     color:var(--ink-soft);
@@ -756,6 +875,39 @@
     <p class="cross-note" style="margin-top:34px;">🐄 <a href="index.html">Volver al remate de ganado de Escritorio Camy →</a></p>
   </section>
 
+  <div class="bid-overlay" id="bidOverlay">
+    <div class="bid-card">
+      <button class="bid-close" id="bidClose" aria-label="Cerrar">✕</button>
+      <div id="bidFormWrap">
+        <h3 class="bid-title" id="bidTitle">Ofertar por el lote</h3>
+        <p class="bid-subtitle" id="bidSubtitle"></p>
+        <p class="bid-current" id="bidCurrent"></p>
+        <div class="bid-error" id="bidError"></div>
+        <form id="bidForm">
+          <div class="bid-field">
+            <label for="bidNombre">Tu nombre</label>
+            <input type="text" id="bidNombre" required autocomplete="name">
+          </div>
+          <div class="bid-field">
+            <label for="bidWhatsapp">Tu WhatsApp</label>
+            <input type="tel" id="bidWhatsapp" required autocomplete="tel" placeholder="09X XXX XXX">
+          </div>
+          <div class="bid-field">
+            <label for="bidMonto">Tu oferta ($)</label>
+            <input type="number" id="bidMonto" required min="1" step="1">
+          </div>
+          <button type="submit" class="bid-submit" id="bidSubmitBtn">Enviar oferta</button>
+        </form>
+        <span class="bid-wa-fallback" id="bidWaFallback"></span>
+      </div>
+      <div class="bid-success" id="bidSuccess" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
+        <p><strong>¡Oferta registrada!</strong></p>
+        <p id="bidSuccessDetail"></p>
+      </div>
+    </div>
+  </div>
+
   <footer class="foot">© Escritorio Camy — Remate de herramientas</footer>
 
 <script>
@@ -764,6 +916,9 @@
    (dejalo vacío para usar la lista de ejemplo)
    ========================================================= */
 const TOOLS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaQ49A_M3H3V-FSRdZ4Kb9lFmk4wnR8xlegdrndcuAa2Iku7_RptSh9UO-loJdK-8f3JyyQkc--n36/pub?gid=928735234&single=true&output=csv";
+
+/* 1b) CONECTÁ ACÁ EL FORMULARIO DE OFERTAS (Google Apps Script) */
+const OFFERS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3Cv00MXY4p0WtxKfho7sRl82UXplx92PV3AXBZQQPVnkcosUnD4e4am4kM7sbR067lw/exec";
 
 /* Número de WhatsApp de Álvaro Franco (remates de herramientas) */
 const WHATSAPP_HERRAMIENTAS = "59899496888";
@@ -858,14 +1013,128 @@ function render(){
         ${t.descripcion ? `<p class="lot-note">${t.descripcion}</p>` : ''}
         ${vendido
           ? `<a class="lot-whatsapp" style="background:var(--ink-soft); pointer-events:none;">Vendido</a>`
-          : `<a class="lot-whatsapp" target="_blank" rel="noopener" href="https://wa.me/${WHATSAPP_HERRAMIENTAS}?text=${encodeURIComponent('Hola Álvaro, quiero ofertar por el Lote ' + (t.lote || '') + ' (' + (t.nombre || '') + ').')}">
-              ${ICONS.tag ? '' : ''}
-              Ofertar por WhatsApp
-            </a>`}
+          : `<button type="button" class="lot-whatsapp" data-bid-lote="${(t.lote || '').replace(/"/g,'&quot;')}">
+              Hacer una oferta
+            </button>`}
       </div>
     </article>`;
   }).join('');
 }
+
+/* ---------- Formulario de ofertas ---------- */
+const bidOverlay = document.getElementById('bidOverlay');
+const bidClose = document.getElementById('bidClose');
+const bidFormWrap = document.getElementById('bidFormWrap');
+const bidForm = document.getElementById('bidForm');
+const bidTitle = document.getElementById('bidTitle');
+const bidSubtitle = document.getElementById('bidSubtitle');
+const bidCurrent = document.getElementById('bidCurrent');
+const bidError = document.getElementById('bidError');
+const bidNombre = document.getElementById('bidNombre');
+const bidWhatsapp = document.getElementById('bidWhatsapp');
+const bidMonto = document.getElementById('bidMonto');
+const bidSubmitBtn = document.getElementById('bidSubmitBtn');
+const bidWaFallback = document.getElementById('bidWaFallback');
+const bidSuccess = document.getElementById('bidSuccess');
+const bidSuccessDetail = document.getElementById('bidSuccessDetail');
+
+let bidActiveLote = null;
+
+function openBidModal(lote){
+  const t = allTools.find(x => String(x.lote) === String(lote));
+  if(!t) return;
+  bidActiveLote = lote;
+  bidFormWrap.style.display = '';
+  bidSuccess.style.display = 'none';
+  bidError.classList.remove('show');
+  bidForm.reset();
+  bidSubmitBtn.disabled = false;
+  bidSubmitBtn.textContent = 'Enviar oferta';
+  bidTitle.textContent = 'Ofertar por el lote ' + (t.lote || '');
+  bidSubtitle.textContent = t.nombre || '';
+  const actual = Number(t.oferta) || 0;
+  bidCurrent.textContent = actual > 0 ? ('Oferta actual: ' + money(t.oferta)) : 'Todavía no hay ofertas.';
+  bidMonto.min = actual > 0 ? (actual + 1) : 1;
+  const waMsg = 'Hola Álvaro, quiero ofertar por el Lote ' + (t.lote || '') + ' (' + (t.nombre || '') + ').';
+  bidWaFallback.innerHTML = `¿Preferís avisarle directo? <a href="https://wa.me/${WHATSAPP_HERRAMIENTAS}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener">Escribile a Álvaro por WhatsApp</a>`;
+  bidOverlay.classList.add('open');
+}
+
+function closeBidModal(){
+  bidOverlay.classList.remove('open');
+  bidActiveLote = null;
+}
+
+grid.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-bid-lote]');
+  if(btn) openBidModal(btn.dataset.bidLote);
+});
+
+bidClose.addEventListener('click', closeBidModal);
+bidOverlay.addEventListener('click', (e) => { if(e.target === bidOverlay) closeBidModal(); });
+
+bidForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  bidError.classList.remove('show');
+
+  const t = allTools.find(x => String(x.lote) === String(bidActiveLote));
+  if(!t) return;
+
+  const nombre = bidNombre.value.trim();
+  const whatsapp = bidWhatsapp.value.trim();
+  const monto = Number(bidMonto.value);
+  const actual = Number(t.oferta) || 0;
+
+  if(!nombre || !whatsapp || !monto || monto <= 0){
+    bidError.textContent = 'Completá todos los datos.';
+    bidError.classList.add('show');
+    return;
+  }
+  if(monto <= actual){
+    bidError.textContent = 'Tu oferta tiene que ser mayor a la oferta actual (' + money(actual) + ').';
+    bidError.classList.add('show');
+    return;
+  }
+
+  if(!OFFERS_SCRIPT_URL || OFFERS_SCRIPT_URL.trim() === ''){
+    bidError.textContent = 'El formulario de ofertas todavía no está activado en este sitio. Probá escribiendo directo por WhatsApp.';
+    bidError.classList.add('show');
+    return;
+  }
+
+  bidSubmitBtn.disabled = true;
+  bidSubmitBtn.textContent = 'Enviando...';
+
+  try{
+    const res = await fetch(OFFERS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ lote: t.lote, herramienta: t.nombre, monto, nombre, whatsapp })
+    });
+    const data = await res.json();
+
+    if(!data.success){
+      bidError.textContent = data.message || 'No se pudo registrar la oferta. Probá de nuevo.';
+      bidError.classList.add('show');
+      bidSubmitBtn.disabled = false;
+      bidSubmitBtn.textContent = 'Enviar oferta';
+      return;
+    }
+
+    t.oferta = String(monto);
+    t.ofertante = nombre;
+    render();
+
+    bidFormWrap.style.display = 'none';
+    bidSuccessDetail.textContent = 'Ofertaste ' + money(monto) + ' por el Lote ' + (t.lote || '') + '. Álvaro te va a contactar por WhatsApp si tu oferta gana.';
+    bidSuccess.style.display = '';
+  }catch(err){
+    bidError.textContent = 'No se pudo conectar. Revisá tu conexión e intentá de nuevo.';
+    bidError.classList.add('show');
+    bidSubmitBtn.disabled = false;
+    bidSubmitBtn.textContent = 'Enviar oferta';
+  }
+});
 
 function loadDemo(){
   allTools = DEMO_TOOLS;
