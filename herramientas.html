@@ -810,8 +810,22 @@ function money(v){
   return '$' + n.toLocaleString('es-UY');
 }
 
+/* Convierte cualquier link de Google Drive (compartido, uc?export=view, o ya
+   en formato thumbnail) al formato que Google realmente deja usar hoy en día
+   para mostrar imágenes en sitios externos. Así no hace falta acordarse de
+   convertir el link a mano: se pega tal cual lo copia Drive y funciona solo. */
+function normalizeImageUrl(raw){
+  const url = String(raw || '').trim();
+  if(!url) return '';
+  const m = url.match(/drive\.google\.com\/(?:file\/d\/|uc\?[^#]*id=|thumbnail\?[^#]*id=|open\?[^#]*id=)([\w-]+)/);
+  if(m){
+    return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000`;
+  }
+  return url;
+}
+
 function photoMedia(fotosRaw){
-  const url = String(fotosRaw || '').split(',')[0].trim();
+  const url = normalizeImageUrl(String(fotosRaw || '').split(',')[0]);
   if(!url){
     return `<div class="lot-media ph-empty">${ICONS.photo}</div>`;
   }
