@@ -940,7 +940,12 @@
     margin:0 auto;
   }
   @media (min-width:720px){
-    .landing-choices{ flex-direction:row; padding-top:36px; }
+    .landing-choices{
+      flex-direction:row;
+      padding-top:36px;
+      max-width:1180px;
+      gap:28px;
+    }
   }
   .landing-choice{
     position:relative;
@@ -953,6 +958,9 @@
     text-decoration:none;
     isolation:isolate;
     box-shadow:0 8px 30px rgba(0,0,0,.35);
+  }
+  @media (min-width:720px){
+    .landing-choice{ min-height:460px; border-radius:22px; }
   }
   .landing-choice video{
     position:absolute; inset:0;
