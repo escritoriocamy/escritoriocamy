@@ -1187,7 +1187,8 @@ function render(){
             <div class="spec-cell"><div class="spec-label">Estado</div><div class="spec-value">${estado}</div></div>
           </div>
           <div class="spec-row">
-            <div class="spec-cell" style="flex:1;"><div class="spec-label">Preoferta actual</div><div class="spec-value">${l.oferta ? money(l.oferta) : 'Sin preofertas'}</div></div>
+            <div class="spec-cell"><div class="spec-label">Preoferta actual</div><div class="spec-value">${l.oferta ? money(l.oferta) : 'Sin preofertas'}</div></div>
+            <div class="spec-cell"><div class="spec-label">Base</div><div class="spec-value">${l.base ? money(l.base) : '—'}</div></div>
           </div>
         </div>
         ${l.comentario ? `<p class="lot-note">${l.comentario}</p>` : ''}
@@ -1246,7 +1247,8 @@ function loadFromSheet(){
         estado: row.estado || row.Estado || '',
         destacado: isTrue(row.destacado || row.Destacado || row['Lote destacado'] || row.lote_destacado),
         oferta: row.oferta || row.Oferta || '',
-        ofertante: row.ofertante || row.Ofertante || ''
+        ofertante: row.ofertante || row.Ofertante || '',
+        base: row.base || row.Base || ''
       }));
       if(allLots.length === 0){
         grid.innerHTML = '<div class="status">La planilla está vacía. Agregá filas y recargá esta página.</div>';
