@@ -982,8 +982,12 @@
         <div class="bid-error" id="bidError"></div>
         <form id="bidForm">
           <div class="bid-field">
-            <label for="bidNombre">Nombre y apellido</label>
-            <input type="text" id="bidNombre" required autocomplete="name">
+            <label for="bidNombre">Nombre</label>
+            <input type="text" id="bidNombre" required autocomplete="given-name">
+          </div>
+          <div class="bid-field">
+            <label for="bidApellido">Apellido</label>
+            <input type="text" id="bidApellido" required autocomplete="family-name">
           </div>
           <div class="bid-field">
             <label for="bidWhatsapp">Tu WhatsApp</label>
@@ -1036,9 +1040,9 @@ const OFFERS_HISTORY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1
 const WHATSAPP_HERRAMIENTAS = "59899496888";
 
 const DEMO_TOOLS = [
-  { lote:"1", nombre:"Motosierra Stihl MS 250", descripcion:"Usada, en buen estado, con espada de 16 pulgadas.", fotos:"", oferta:"8500", ofertante:"J. Rodríguez", estado:"", destacado:true },
-  { lote:"2", nombre:"Amoladora angular 4 1/2 pulgadas", descripcion:"Poco uso, incluye 3 discos de corte.", fotos:"", oferta:"", ofertante:"", estado:"", destacado:false },
-  { lote:"3", nombre:"Juego de llaves combinadas", descripcion:"Set completo 8-24mm, en caja original.", fotos:"", oferta:"3200", ofertante:"M. Silva", estado:"vendido", destacado:false },
+  { lote:"1", nombre:"Motosierra Stihl MS 250", descripcion:"Usada, en buen estado, con espada de 16 pulgadas.", fotos:"", oferta:"8500", ofertante:"J. Rodríguez", base:"7000", estado:"", destacado:true },
+  { lote:"2", nombre:"Amoladora angular 4 1/2 pulgadas", descripcion:"Poco uso, incluye 3 discos de corte.", fotos:"", oferta:"", ofertante:"", base:"", estado:"", destacado:false },
+  { lote:"3", nombre:"Juego de llaves combinadas", descripcion:"Set completo 8-24mm, en caja original.", fotos:"", oferta:"3200", ofertante:"M. Silva", base:"3000", estado:"vendido", destacado:false },
 ];
 
 const grid = document.getElementById('grid');
@@ -1133,7 +1137,7 @@ function render(){
         <div class="lot-specs">
           <div class="spec-row">
             <div class="spec-cell"><div class="spec-label">${vendido ? 'Vendido en' : 'Oferta actual'}</div><div class="spec-value">${t.oferta ? money(t.oferta) : 'Sin ofertas'}</div></div>
-            <div class="spec-cell"><div class="spec-label">Ofertante</div><div class="spec-value">${t.ofertante || '—'}</div></div>
+            <div class="spec-cell"><div class="spec-label">Base</div><div class="spec-value">${t.base ? money(t.base) : '—'}</div></div>
           </div>
         </div>
         ${t.descripcion ? `<p class="lot-note">${t.descripcion}</p>` : ''}
@@ -1178,6 +1182,7 @@ const bidSubtitle = document.getElementById('bidSubtitle');
 const bidCurrent = document.getElementById('bidCurrent');
 const bidError = document.getElementById('bidError');
 const bidNombre = document.getElementById('bidNombre');
+const bidApellido = document.getElementById('bidApellido');
 const bidWhatsapp = document.getElementById('bidWhatsapp');
 const bidLocalidad = document.getElementById('bidLocalidad');
 const bidMonto = document.getElementById('bidMonto');
@@ -1292,13 +1297,15 @@ bidForm.addEventListener('submit', async (e) => {
   const t = allTools.find(x => String(x.lote) === String(bidActiveLote));
   if(!t) return;
 
-  const nombre = bidNombre.value.trim();
+  const nombreSolo = bidNombre.value.trim();
+  const apellido = bidApellido.value.trim();
+  const nombre = (nombreSolo + ' ' + apellido).trim();
   const whatsapp = bidWhatsapp.value.trim();
   const localidad = bidLocalidad.value.trim();
   const monto = Number(bidMonto.value);
   const actual = Number(t.oferta) || 0;
 
-  if(!nombre || !whatsapp || !localidad || !monto || monto <= 0){
+  if(!nombreSolo || !apellido || !whatsapp || !localidad || !monto || monto <= 0){
     bidError.textContent = 'Completá todos los datos.';
     bidError.classList.add('show');
     return;
@@ -1380,6 +1387,7 @@ function loadFromSheet(){
           fotos: row.fotos || row.Fotos || row.foto || row.Foto || '',
           oferta: row.oferta || row.Oferta || row.oferta_actual || row['Oferta actual'] || '',
           ofertante: row.ofertante || row.Ofertante || '',
+          base: row.base || row.Base || '',
           estado: row.estado || row.Estado || row.vendido || row.Vendido || '',
           destacado: isTrue(row.destacado || row.Destacado || row['Lote destacado'])
         }));
