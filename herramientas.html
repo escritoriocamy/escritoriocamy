@@ -1532,7 +1532,7 @@ function startCountdown(targetDate, tituloRemate){
 
     box.innerHTML = `
       <div class="countdown-box">
-        <div class="countdown-title">Faltan para ${tituloRemate || 'el remate de herramientas'}</div>
+        <div class="countdown-title">${tituloRemate || 'Remate de herramientas'}</div>
         <div class="countdown-units">
           <div class="countdown-unit"><span class="num">${dias}</span><span class="lbl">Días</span></div>
           <div class="countdown-unit"><span class="num">${String(horas).padStart(2,'0')}</span><span class="lbl">Horas</span></div>
