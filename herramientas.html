@@ -905,6 +905,58 @@
     color:var(--ink-soft);
   }
   .cross-note a{ color:var(--gold-700); font-weight:700; text-decoration:underline; }
+
+  /* ---------- Cuenta regresiva al remate virtual ---------- */
+  .countdown-box{
+    max-width:620px;
+    margin:0 auto 34px;
+    padding:20px 24px;
+    border-radius:14px;
+    background:var(--olive-900);
+    text-align:center;
+  }
+  .countdown-title{
+    font-family:'Inter', sans-serif;
+    font-weight:700;
+    font-size:13px;
+    letter-spacing:.03em;
+    color:var(--gold-600);
+    text-transform:uppercase;
+    margin-bottom:12px;
+  }
+  .countdown-units{
+    display:flex;
+    justify-content:center;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+  .countdown-unit{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-width:58px;
+  }
+  .countdown-unit .num{
+    font-family:'Source Serif 4', serif;
+    font-weight:700;
+    font-size:28px;
+    color:#f7f4e9;
+    line-height:1;
+  }
+  .countdown-unit .lbl{
+    font-family:'Inter', sans-serif;
+    font-size:11px;
+    color:#cddccb;
+    margin-top:4px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+  }
+  .countdown-ended{
+    font-family:'Inter', sans-serif;
+    font-weight:700;
+    font-size:15px;
+    color:#f7f4e9;
+  }
 </style>
 </head>
 <body>
@@ -945,6 +997,8 @@
   </section>
 
   <p class="cross-note" style="margin-top:24px;">🐄 ¿Buscás ganado? <a href="ganado.html">Visitá el remate de ganado de Escritorio Camy →</a></p>
+
+  <div id="countdownBox" style="display:none;"></div>
 
   <section id="herramientas">
     <nav class="filters" id="filters"></nav>
@@ -1419,6 +1473,88 @@ try{
   loadDemo();
 }
 loadOffersHistory();
+
+/* ---------- Cuenta regresiva al remate virtual de herramientas ---------- */
+const SHEET_REMATES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaQ49A_M3H3V-FSRdZ4Kb9lFmk4wnR8xlegdrndcuAa2Iku7_RptSh9UO-loJdK-8f3JyyQkc--n36/pub?gid=111075238&single=true&output=csv";
+
+function esRemateHerramientas(titulo, detalle){
+  const texto = `${titulo || ''} ${detalle || ''}`.toLowerCase();
+  return texto.includes('herramient');
+}
+
+function parseFechaHora(fecha, hora){
+  const partes = String(fecha || '').split('/');
+  if(partes.length !== 3) return null;
+  const [dd, mm, yyyy] = partes.map(Number);
+  let hh = 0, min = 0;
+  if(hora){
+    const hpartes = String(hora).split(':');
+    hh = Number(hpartes[0]) || 0;
+    min = Number(hpartes[1]) || 0;
+  }
+  const d = new Date(yyyy, (mm || 1) - 1, dd || 1, hh, min, 0);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+let countdownTimer = null;
+
+function startCountdown(targetDate, tituloRemate){
+  const box = document.getElementById('countdownBox');
+
+  function tick(){
+    const now = new Date();
+    const diff = targetDate - now;
+
+    if(diff <= 0){
+      box.innerHTML = `<div class="countdown-box"><div class="countdown-ended">🔨 ¡El remate de herramientas ya comenzó!</div></div>`;
+      if(countdownTimer) clearInterval(countdownTimer);
+      return;
+    }
+
+    const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const horas = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const minutos = Math.floor((diff / (1000 * 60)) % 60);
+    const segundos = Math.floor((diff / 1000) % 60);
+
+    box.innerHTML = `
+      <div class="countdown-box">
+        <div class="countdown-title">Faltan para ${tituloRemate || 'el remate de herramientas'}</div>
+        <div class="countdown-units">
+          <div class="countdown-unit"><span class="num">${dias}</span><span class="lbl">Días</span></div>
+          <div class="countdown-unit"><span class="num">${String(horas).padStart(2,'0')}</span><span class="lbl">Horas</span></div>
+          <div class="countdown-unit"><span class="num">${String(minutos).padStart(2,'0')}</span><span class="lbl">Min</span></div>
+          <div class="countdown-unit"><span class="num">${String(segundos).padStart(2,'0')}</span><span class="lbl">Seg</span></div>
+        </div>
+      </div>`;
+  }
+
+  box.style.display = '';
+  tick();
+  countdownTimer = setInterval(tick, 1000);
+}
+
+function loadCountdown(){
+  if(!SHEET_REMATES_CSV_URL || typeof Papa === 'undefined') return;
+  Papa.parse(SHEET_REMATES_CSV_URL, {
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    complete: (results) => {
+      const rows = results.data || [];
+      const remate = rows.find(row => esRemateHerramientas(row.titulo || row.Titulo || row['Título'], row.detalle || row.Detalle));
+      if(!remate) return;
+      const fecha = remate.fecha || remate.Fecha || '';
+      const hora = remate.hora || remate.Hora || '';
+      const titulo = remate.titulo || remate.Titulo || remate['Título'] || '';
+      const target = parseFechaHora(fecha, hora);
+      if(target) startCountdown(target, titulo);
+    },
+    error: () => {}
+  });
+}
+
+loadCountdown();
+
 </script>
 
 <!-- =========================================================
