@@ -453,6 +453,166 @@
   .lot-whatsapp:hover{ background:var(--olive-800); }
   .lot-whatsapp svg{ width:16px; height:16px; flex-shrink:0; }
 
+  .lot-actions{
+    display:flex;
+    gap:10px;
+    margin-top:16px;
+  }
+  .lot-actions .lot-whatsapp{ margin-top:0; flex:1; }
+  .lot-whatsapp-outline{
+    background:transparent;
+    border:1.5px solid var(--olive-900);
+    color:var(--olive-900);
+  }
+  .lot-whatsapp-outline:hover{ background:var(--olive-900); color:#fff; }
+
+  /* ---------- Modal de oferta ---------- */
+  .bid-overlay{
+    position:fixed; inset:0;
+    background:rgba(20,32,15,.55);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:20px;
+    z-index:100;
+  }
+  .bid-overlay.open{ display:flex; }
+  .bid-card{
+    background:#fff;
+    border-radius:14px;
+    width:100%; max-width:400px;
+    padding:26px 24px 22px;
+    position:relative;
+    max-height:90vh;
+    overflow-y:auto;
+  }
+  .bid-close{
+    position:absolute; top:14px; right:14px;
+    width:30px; height:30px;
+    border:none; background:#f0ede2;
+    border-radius:50%;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--ink-soft);
+    font-size:18px;
+    line-height:1;
+  }
+  .bid-close:hover{ background:#e6e2d3; }
+  .bid-title{
+    font-family:'Source Serif 4', serif;
+    font-weight:700;
+    font-size:20px;
+    color:var(--ink);
+    margin:0 0 4px;
+    padding-right:24px;
+  }
+  .bid-subtitle{
+    font-family:'Inter', sans-serif;
+    font-size:13px;
+    color:var(--ink-soft);
+    margin:0 0 18px;
+  }
+  .bid-field{ margin-bottom:14px; }
+  .bid-field label{
+    display:block;
+    font-family:'Inter', sans-serif;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--ink);
+    margin-bottom:5px;
+  }
+  .bid-field input{
+    width:100%;
+    box-sizing:border-box;
+    padding:10px 12px;
+    border:1.5px solid #e0dccb;
+    border-radius:8px;
+    font-family:'Inter', sans-serif;
+    font-size:14.5px;
+    color:var(--ink);
+    background:#fdfcf7;
+  }
+  .bid-field input:focus{ outline:none; border-color:var(--gold-600); }
+  .bid-current{
+    font-family:'Inter', sans-serif;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin:-6px 0 10px;
+  }
+  .bid-history{
+    margin:0 0 14px;
+    max-height:110px;
+    overflow-y:auto;
+    border:1px solid #e0dccb;
+    border-radius:8px;
+  }
+  .bid-history-item{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:7px 10px;
+    font-family:'Inter', sans-serif;
+    font-size:12px;
+    color:var(--ink);
+    border-bottom:1px solid #efece0;
+  }
+  .bid-history-item:last-child{ border-bottom:none; }
+  .bid-history-item .name{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bid-history-item .amt{ color:var(--gold-700); font-weight:700; flex-shrink:0; }
+  .bid-history-empty{
+    padding:10px;
+    font-family:'Inter', sans-serif;
+    font-size:12px;
+    color:var(--ink-soft);
+    text-align:center;
+  }
+  .bid-error{
+    font-family:'Inter', sans-serif;
+    font-size:12.5px;
+    color:#b23b3b;
+    background:#fbeceb;
+    border-radius:8px;
+    padding:9px 11px;
+    margin-bottom:14px;
+    display:none;
+  }
+  .bid-error.show{ display:block; }
+  .bid-success{
+    text-align:center;
+    padding:10px 0 4px;
+  }
+  .bid-success svg{ width:40px; height:40px; color:var(--gold-600); margin-bottom:10px; }
+  .bid-success p{
+    font-family:'Inter', sans-serif;
+    font-size:14px;
+    color:var(--ink);
+    margin:0 0 4px;
+  }
+  .bid-submit{
+    width:100%;
+    padding:12px 14px;
+    border:none;
+    border-radius:10px;
+    background:var(--olive-900);
+    color:#fff;
+    font-family:'Inter', sans-serif;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    transition:background .15s ease;
+  }
+  .bid-submit:hover{ background:var(--olive-800); }
+  .bid-submit:disabled{ opacity:.6; cursor:not-allowed; }
+  .bid-wa-fallback{
+    display:block;
+    text-align:center;
+    margin-top:14px;
+    font-family:'Inter', sans-serif;
+    font-size:12.5px;
+    color:var(--ink-soft);
+  }
+  .bid-wa-fallback a{ color:var(--gold-700); font-weight:700; text-decoration:underline; }
+
+
   .status{
     text-align:center;
     color:var(--ink-soft);
@@ -802,6 +962,40 @@
     </div>
   </div>
 
+  <div class="bid-overlay" id="bidOverlay">
+    <div class="bid-card">
+      <button class="bid-close" id="bidClose" aria-label="Cerrar">✕</button>
+      <div id="bidFormWrap">
+        <h3 class="bid-title" id="bidTitle">Ofertar por el lote</h3>
+        <p class="bid-subtitle" id="bidSubtitle"></p>
+        <p class="bid-current" id="bidCurrent"></p>
+        <div class="bid-history" id="bidHistory"></div>
+        <div class="bid-error" id="bidError"></div>
+        <form id="bidForm">
+          <div class="bid-field">
+            <label for="bidNombre">Nombre y apellido</label>
+            <input type="text" id="bidNombre" required autocomplete="name">
+          </div>
+          <div class="bid-field">
+            <label for="bidWhatsapp">Tu WhatsApp</label>
+            <input type="tel" id="bidWhatsapp" required autocomplete="tel" placeholder="09X XXX XXX">
+          </div>
+          <div class="bid-field">
+            <label for="bidMonto">Tu oferta (US$)</label>
+            <input type="number" id="bidMonto" required min="1" step="1">
+          </div>
+          <button type="submit" class="bid-submit" id="bidSubmitBtn">Enviar oferta</button>
+        </form>
+        <span class="bid-wa-fallback" id="bidWaFallback"></span>
+      </div>
+      <div class="bid-success" id="bidSuccess" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
+        <p><strong>¡Oferta registrada!</strong></p>
+        <p id="bidSuccessDetail"></p>
+      </div>
+    </div>
+  </div>
+
   <footer class="foot">© Escritorio Camy — Negocios Rurales desde 1908</footer>
 
 <script>
@@ -815,6 +1009,13 @@ const WHATSAPP_NUMBER = "59899342965";
 /* Número de WhatsApp de Álvaro Franco, para consultas por remates de herramientas */
 const WHATSAPP_HERRAMIENTAS = "59899496888";
 
+/* 1b) CONECTÁ ACÁ EL FORMULARIO DE OFERTAS (mismo Apps Script que herramientas) */
+const OFFERS_SCRIPT_URL = "";
+/* Nombre exacto de la pestaña de lotes en tu Sheets (revisá que coincida) */
+const OFFERS_SHEET_NAME = "Lotes";
+/* 1c) Historial público de ofertas (pestaña "OfertasPublicas" publicada como CSV) */
+const OFFERS_HISTORY_CSV_URL = "";
+
 const DEMO_LOTS = [
   { lote:"1", categoria:"Novillos Hereford", cabezas:"42", peso:"410", ubicacion:"Est. La Aurora, Cerro Largo", video:"", raza:"", comentario:"", destacado:false },
   { lote:"2", categoria:"Vaquillonas Angus", cabezas:"30", peso:"320", ubicacion:"Est. Don Justo, Florida", video:"", raza:"", comentario:"", destacado:true },
@@ -825,6 +1026,12 @@ function isTrue(val){
   if(!val) return false;
   const v = String(val).trim().toLowerCase();
   return v === 'si' || v === 'sí' || v === 'true' || v === '1' || v === 'x' || v === 'yes';
+}
+
+function money(v){
+  const n = Number(String(v || '').replace(/[^0-9.-]/g,''));
+  if(!n && n !== 0) return '';
+  return 'US$' + n.toLocaleString('es-UY');
 }
 
 const grid = document.getElementById('grid');
@@ -971,13 +1178,21 @@ function render(){
             <div class="spec-cell"><div class="spec-label">Ubicación</div><div class="spec-value">${l.ubicacion || '—'}</div></div>
             <div class="spec-cell"><div class="spec-label">Estado</div><div class="spec-value">${estado}</div></div>
           </div>
+          <div class="spec-row">
+            <div class="spec-cell"><div class="spec-label">Oferta actual</div><div class="spec-value">${l.oferta ? money(l.oferta) : 'Sin ofertas'}</div></div>
+            <div class="spec-cell"><div class="spec-label">Ofertante</div><div class="spec-value">${l.ofertante || '—'}</div></div>
+          </div>
         </div>
         ${l.comentario ? `<p class="lot-note">${l.comentario}</p>` : ''}
-        <a class="lot-whatsapp" target="_blank" rel="noopener"
-           href="https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola Roger, me interesa el Lote ' + (l.lote || '') + ' (' + (l.categoria || 'sin categoría') + ')')}">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.1h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.14.82.84-3.06-.2-.31a8.2 8.2 0 0 1-1.26-4.4c0-4.55 3.71-8.26 8.27-8.26 2.21 0 4.28.86 5.84 2.42a8.19 8.19 0 0 1 2.42 5.84c0 4.56-3.71 8.28-8.27 8.28zm4.53-6.2c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.99-1.22-.73-.66-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.42-.14 0-.31-.01-.48-.01-.17 0-.43.06-.66.31-.23.25-.86.84-.86 2.05 0 1.2.88 2.37 1 2.53.12.17 1.73 2.64 4.2 3.7.59.25 1.05.4 1.4.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
-          Consultar por WhatsApp
-        </a>
+        <div class="lot-actions">
+          ${estado.toLowerCase() === 'vendido'
+            ? ''
+            : `<button type="button" class="lot-whatsapp" data-bid-lote="${(l.lote || '').replace(/"/g,'&quot;')}">Ofertar</button>`}
+          <a class="lot-whatsapp lot-whatsapp-outline" target="_blank" rel="noopener"
+             href="https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola Roger, me interesa el Lote ' + (l.lote || '') + ' (' + (l.categoria || 'sin categoría') + ')')}">
+            Consultar con Roger
+          </a>
+        </div>
       </div>
     </article>`;
   }).join('');
@@ -1022,7 +1237,9 @@ function loadFromSheet(){
         raza: row.raza || row.Raza || '',
         comentario: row.comentario || row.Comentario || '',
         estado: row.estado || row.Estado || '',
-        destacado: isTrue(row.destacado || row.Destacado || row['Lote destacado'] || row.lote_destacado)
+        destacado: isTrue(row.destacado || row.Destacado || row['Lote destacado'] || row.lote_destacado),
+        oferta: row.oferta || row.Oferta || '',
+        ofertante: row.ofertante || row.Ofertante || ''
       }));
       if(allLots.length === 0){
         grid.innerHTML = '<div class="status">La planilla está vacía. Agregá filas y recargá esta página.</div>';
@@ -1042,6 +1259,169 @@ if(SHEET_CSV_URL && SHEET_CSV_URL.trim() !== ""){
 } else {
   loadDemo();
 }
+
+/* ---------- Formulario de ofertas (pre-oferta de ganado) ---------- */
+const bidOverlay = document.getElementById('bidOverlay');
+const bidClose = document.getElementById('bidClose');
+const bidFormWrap = document.getElementById('bidFormWrap');
+const bidForm = document.getElementById('bidForm');
+const bidTitle = document.getElementById('bidTitle');
+const bidSubtitle = document.getElementById('bidSubtitle');
+const bidCurrent = document.getElementById('bidCurrent');
+const bidError = document.getElementById('bidError');
+const bidNombre = document.getElementById('bidNombre');
+const bidWhatsapp = document.getElementById('bidWhatsapp');
+const bidMonto = document.getElementById('bidMonto');
+const bidSubmitBtn = document.getElementById('bidSubmitBtn');
+const bidWaFallback = document.getElementById('bidWaFallback');
+const bidSuccess = document.getElementById('bidSuccess');
+const bidSuccessDetail = document.getElementById('bidSuccessDetail');
+
+let bidActiveLote = null;
+let offersHistory = {};
+
+function renderBidHistory(lote){
+  const bidHistory = document.getElementById('bidHistory');
+  const list = (offersHistory[String(lote)] || []).slice().sort((a,b) => b.monto - a.monto);
+  if(!list.length){
+    bidHistory.innerHTML = `<div class="bid-history-empty">Todavía no hay ofertas registradas para este lote.</div>`;
+    return;
+  }
+  bidHistory.innerHTML = list.map(o =>
+    `<div class="bid-history-item"><span class="name">${o.nombre}</span><span class="amt">${money(o.monto)}</span></div>`
+  ).join('');
+}
+
+function loadOffersHistory(){
+  if(!OFFERS_HISTORY_CSV_URL || OFFERS_HISTORY_CSV_URL.trim() === '') return;
+  if(typeof Papa === 'undefined') return;
+  Papa.parse(OFFERS_HISTORY_CSV_URL, {
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    complete: (results) => {
+      const map = {};
+      (results.data || []).forEach(row => {
+        const hoja = String(row.Hoja || row.hoja || '').trim();
+        if(hoja && hoja !== OFFERS_SHEET_NAME) return;
+        const lote = String(row.Lote || row.lote || '').trim();
+        const nombre = String(row.Nombre || row.nombre || '').trim();
+        const monto = Number(row.Monto || row.monto);
+        if(!lote || !nombre || !monto) return;
+        if(!map[lote]) map[lote] = [];
+        map[lote].push({ nombre, monto });
+      });
+      offersHistory = map;
+    },
+    error: () => {}
+  });
+}
+
+function openBidModal(lote){
+  const l = allLots.find(x => String(x.lote) === String(lote));
+  if(!l) return;
+  bidActiveLote = lote;
+  bidFormWrap.style.display = '';
+  bidSuccess.style.display = 'none';
+  bidError.classList.remove('show');
+  bidForm.reset();
+  bidSubmitBtn.disabled = false;
+  bidSubmitBtn.textContent = 'Enviar oferta';
+  bidTitle.textContent = 'Ofertar por el lote ' + (l.lote || '');
+  bidSubtitle.textContent = l.categoria || '';
+  const actual = Number(l.oferta) || 0;
+  bidCurrent.textContent = actual > 0 ? ('Oferta actual: ' + money(l.oferta)) : 'Todavía no hay ofertas.';
+  bidMonto.min = actual > 0 ? (actual + 1) : 1;
+  renderBidHistory(lote);
+  const waMsg = 'Hola Roger, quiero ofertar por el Lote ' + (l.lote || '') + ' (' + (l.categoria || '') + ').';
+  bidWaFallback.innerHTML = `¿Preferís avisarle directo? <a href="https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener">Escribile a Roger por WhatsApp</a>`;
+  bidOverlay.classList.add('open');
+}
+
+function closeBidModal(){
+  bidOverlay.classList.remove('open');
+  bidActiveLote = null;
+}
+
+grid.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-bid-lote]');
+  if(btn) openBidModal(btn.dataset.bidLote);
+});
+
+bidClose.addEventListener('click', closeBidModal);
+bidOverlay.addEventListener('click', (e) => { if(e.target === bidOverlay) closeBidModal(); });
+
+bidForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  bidError.classList.remove('show');
+
+  const l = allLots.find(x => String(x.lote) === String(bidActiveLote));
+  if(!l) return;
+
+  const nombre = bidNombre.value.trim();
+  const whatsapp = bidWhatsapp.value.trim();
+  const monto = Number(bidMonto.value);
+  const actual = Number(l.oferta) || 0;
+
+  if(!nombre || !whatsapp || !monto || monto <= 0){
+    bidError.textContent = 'Completá todos los datos.';
+    bidError.classList.add('show');
+    return;
+  }
+  if(nombre.indexOf(' ') === -1){
+    bidError.textContent = 'Escribí tu nombre y apellido.';
+    bidError.classList.add('show');
+    return;
+  }
+  if(monto <= actual){
+    bidError.textContent = 'Tu oferta tiene que ser mayor a la oferta actual (' + money(actual) + ').';
+    bidError.classList.add('show');
+    return;
+  }
+
+  if(!OFFERS_SCRIPT_URL || OFFERS_SCRIPT_URL.trim() === ''){
+    bidError.textContent = 'El formulario de ofertas todavía no está activado en este sitio. Probá escribiendo directo por WhatsApp.';
+    bidError.classList.add('show');
+    return;
+  }
+
+  bidSubmitBtn.disabled = true;
+  bidSubmitBtn.textContent = 'Enviando...';
+
+  try{
+    const res = await fetch(OFFERS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ hoja: OFFERS_SHEET_NAME, lote: l.lote, item: l.categoria, monto, nombre, whatsapp })
+    });
+    const data = await res.json();
+
+    if(!data.success){
+      bidError.textContent = data.message || 'No se pudo registrar la oferta. Probá de nuevo.';
+      bidError.classList.add('show');
+      bidSubmitBtn.disabled = false;
+      bidSubmitBtn.textContent = 'Enviar oferta';
+      return;
+    }
+
+    l.oferta = String(monto);
+    l.ofertante = nombre;
+    if(!offersHistory[String(l.lote)]) offersHistory[String(l.lote)] = [];
+    offersHistory[String(l.lote)].push({ nombre, monto });
+    render();
+
+    bidFormWrap.style.display = 'none';
+    bidSuccessDetail.textContent = 'Ofertaste ' + money(monto) + ' por el Lote ' + (l.lote || '') + '. Roger te va a contactar por WhatsApp si tu oferta gana.';
+    bidSuccess.style.display = '';
+  }catch(err){
+    bidError.textContent = 'No se pudo conectar. Revisá tu conexión e intentá de nuevo.';
+    bidError.classList.add('show');
+    bidSubmitBtn.disabled = false;
+    bidSubmitBtn.textContent = 'Enviar oferta';
+  }
+});
+
+loadOffersHistory();
 
 /* =========================================================
    REMATES (agenda de remates, separado de los Lotes)
