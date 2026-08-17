@@ -1440,6 +1440,17 @@ const SHEET_REMATES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1v
 
 const rematesGrid = document.getElementById('rematesGrid');
 
+/* Convierte cualquier link de Google Drive al formato que sí funciona embebido */
+function normalizeImageUrl(raw){
+  const url = String(raw || '').trim();
+  if(!url) return '';
+  const m = url.match(/drive\.google\.com\/(?:file\/d\/|uc\?[^#]*id=|thumbnail\?[^#]*id=|open\?[^#]*id=)([\w-]+)/);
+  if(m){
+    return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000`;
+  }
+  return url;
+}
+
 /* Detecta remates de herramientas leyendo el título (y el detalle como respaldo) */
 function esHerramientas(titulo, detalle){
   const texto = `${titulo || ''} ${detalle || ''}`.toLowerCase();
@@ -1465,6 +1476,7 @@ function renderRemates(){
       : `Hola Roger, quiero anotar un lote para el remate "${r.titulo || ''}".`;
     return `
     <article class="lot${herramientas ? '' : ' lot-featured'}">
+      ${r.foto ? `<div class="lot-media"><img src="${normalizeImageUrl(r.foto)}" alt="" loading="lazy"></div>` : ''}
       <div class="lot-body">
         <div class="media-tag tag-status disponible" style="position:static; display:inline-flex; margin-bottom:10px; margin-right:8px;">Próximo remate</div>
         ${herramientas ? `<div class="media-tag tag-featured" style="position:static; display:inline-flex; margin-bottom:10px;">${ICONS.tag} Herramientas</div>` : ''}
@@ -1500,7 +1512,8 @@ function loadRematesFromSheet(){
         fecha: row.fecha || row.Fecha || '',
         titulo: row.titulo || row.Titulo || row['Título'] || '',
         detalle: row.detalle || row.Detalle || row.descripcion || row.Descripcion || row['Descripción'] || '',
-        hora: row.hora || row.Hora || ''
+        hora: row.hora || row.Hora || '',
+        foto: row.foto || row.Foto || row.banner || row.Banner || row.imagen || row.Imagen || ''
       }));
       if(allRemates.length === 0){
         rematesGrid.innerHTML = '<div class="status">La planilla de remates está vacía. Agregá filas y recargá esta página.</div>';
