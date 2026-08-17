@@ -1187,8 +1187,7 @@ function render(){
             <div class="spec-cell"><div class="spec-label">Estado</div><div class="spec-value">${estado}</div></div>
           </div>
           <div class="spec-row">
-            <div class="spec-cell"><div class="spec-label">Oferta actual</div><div class="spec-value">${l.oferta ? money(l.oferta) : 'Sin ofertas'}</div></div>
-            <div class="spec-cell"><div class="spec-label">Ofertante</div><div class="spec-value">${l.ofertante || '—'}</div></div>
+            <div class="spec-cell" style="flex:1;"><div class="spec-label">Preoferta actual</div><div class="spec-value">${l.oferta ? money(l.oferta) : 'Sin preofertas'}</div></div>
           </div>
         </div>
         ${l.comentario ? `<p class="lot-note">${l.comentario}</p>` : ''}
@@ -1295,7 +1294,7 @@ function renderBidHistory(lote){
   const bidHistory = document.getElementById('bidHistory');
   const list = (offersHistory[String(lote)] || []).slice().sort((a,b) => b.monto - a.monto);
   if(!list.length){
-    bidHistory.innerHTML = `<div class="bid-history-empty">Todavía no hay ofertas registradas para este lote.</div>`;
+    bidHistory.innerHTML = `<div class="bid-history-empty">Todavía no hay preofertas registradas para este lote.</div>`;
     return;
   }
   bidHistory.innerHTML = list.map(o =>
@@ -1341,7 +1340,7 @@ function openBidModal(lote){
   bidTitle.textContent = 'Preofertar por el lote ' + (l.lote || '');
   bidSubtitle.textContent = l.categoria || '';
   const actual = Number(l.oferta) || 0;
-  bidCurrent.textContent = actual > 0 ? ('Oferta actual: ' + money(l.oferta)) : 'Todavía no hay ofertas.';
+  bidCurrent.textContent = actual > 0 ? ('Preoferta actual: ' + money(l.oferta)) : 'Todavía no hay preofertas.';
   bidMonto.min = actual > 0 ? (actual + 1) : 1;
   renderBidHistory(lote);
   const waMsg = 'Hola Roger, quiero ofertar por el Lote ' + (l.lote || '') + ' (' + (l.categoria || '') + ').';
