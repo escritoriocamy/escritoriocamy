@@ -448,6 +448,18 @@
   }
   .lot-whatsapp:hover{ background:var(--olive-800); }
   .lot-whatsapp svg{ width:16px; height:16px; flex-shrink:0; }
+  .lot-actions{
+    display:flex;
+    gap:10px;
+    margin-top:16px;
+  }
+  .lot-actions .lot-whatsapp{ margin-top:0; flex:1; }
+  .lot-whatsapp-outline{
+    background:transparent;
+    border:1.5px solid var(--olive-900);
+    color:var(--olive-900);
+  }
+  .lot-whatsapp-outline:hover{ background:var(--olive-900); color:#fff; }
 
   /* ---------- Modal de oferta ---------- */
   .bid-overlay{
@@ -935,6 +947,7 @@
   <p class="cross-note" style="margin-top:24px;">🐄 ¿Buscás hacienda? <a href="ganado.html">Visitá el remate de ganado de Escritorio Camy →</a></p>
 
   <section id="herramientas">
+    <nav class="filters" id="filters"></nav>
     <main class="grid" id="grid">
       <div class="status">Cargando herramientas…</div>
     </main>
@@ -1019,13 +1032,15 @@ const OFFERS_HISTORY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1
 const WHATSAPP_HERRAMIENTAS = "59899496888";
 
 const DEMO_TOOLS = [
-  { lote:"1", nombre:"Motosierra Stihl MS 250", descripcion:"Usada, en buen estado, con espada de 16 pulgadas.", fotos:"", oferta:"8500", ofertante:"J. Rodríguez", estado:"" },
-  { lote:"2", nombre:"Amoladora angular 4 1/2 pulgadas", descripcion:"Poco uso, incluye 3 discos de corte.", fotos:"", oferta:"", ofertante:"", estado:"" },
-  { lote:"3", nombre:"Juego de llaves combinadas", descripcion:"Set completo 8-24mm, en caja original.", fotos:"", oferta:"3200", ofertante:"M. Silva", estado:"vendido" },
+  { lote:"1", nombre:"Motosierra Stihl MS 250", descripcion:"Usada, en buen estado, con espada de 16 pulgadas.", fotos:"", oferta:"8500", ofertante:"J. Rodríguez", estado:"", destacado:true },
+  { lote:"2", nombre:"Amoladora angular 4 1/2 pulgadas", descripcion:"Poco uso, incluye 3 discos de corte.", fotos:"", oferta:"", ofertante:"", estado:"", destacado:false },
+  { lote:"3", nombre:"Juego de llaves combinadas", descripcion:"Set completo 8-24mm, en caja original.", fotos:"", oferta:"3200", ofertante:"M. Silva", estado:"vendido", destacado:false },
 ];
 
 const grid = document.getElementById('grid');
+const filtersEl = document.getElementById('filters');
 let allTools = [];
+let activeFilter = "Todos";
 
 document.getElementById('navWhatsapp').href = `https://wa.me/${WHATSAPP_HERRAMIENTAS}?text=${encodeURIComponent('Hola Álvaro, tengo una consulta sobre las herramientas en remate.')}`;
 document.getElementById('contactWhatsapp').href = `https://wa.me/${WHATSAPP_HERRAMIENTAS}?text=${encodeURIComponent('Hola Álvaro, tengo una consulta.')}`;
@@ -1091,14 +1106,22 @@ function render(){
     grid.innerHTML = '<div class="status">Por el momento no hay herramientas cargadas.</div>';
     return;
   }
-  grid.innerHTML = allTools.map((t) => {
+  const items = activeFilter === "Destacados" ? allTools.filter(t => t.destacado === true) : allTools;
+  if(!items.length){
+    grid.innerHTML = '<div class="status">Todavía no hay herramientas marcadas como destacadas.</div>';
+    return;
+  }
+  const sorted = [...items].sort((a, b) => (b.destacado === true) - (a.destacado === true));
+  grid.innerHTML = sorted.map((t) => {
     const vendido = isTrue(t.estado);
+    const waMsg = 'Hola Álvaro, tengo una consulta sobre el Lote ' + (t.lote || '') + ' (' + (t.nombre || '') + ').';
     return `
-    <article class="lot">
+    <article class="lot${t.destacado ? ' lot-featured' : ''}">
       <div style="position:relative">
         ${photoMedia(t.fotos, t.lote)}
         <div class="media-tag tag-lote">${ICONS.tag} LOTE ${t.lote || '-'}</div>
         <div class="media-tag tag-status ${vendido ? 'vendido' : 'disponible'}">${vendido ? 'Vendido' : 'Disponible'}</div>
+        ${t.destacado ? `<div class="media-tag tag-featured">★ Destacado</div>` : ''}
       </div>
       <div class="lot-body">
         <h3 class="lot-cat">${t.nombre || 'Sin nombre'}</h3>
@@ -1112,12 +1135,33 @@ function render(){
         ${t.descripcion ? `<p class="lot-note">${t.descripcion}</p>` : ''}
         ${vendido
           ? `<a class="lot-whatsapp" style="background:var(--ink-soft); pointer-events:none;">Vendido</a>`
-          : `<button type="button" class="lot-whatsapp" data-bid-lote="${(t.lote || '').replace(/"/g,'&quot;')}">
-              Hacer una oferta
-            </button>`}
+          : `<div class="lot-actions">
+              <button type="button" class="lot-whatsapp" data-bid-lote="${(t.lote || '').replace(/"/g,'&quot;')}">Ofertar</button>
+              <a class="lot-whatsapp lot-whatsapp-outline" target="_blank" rel="noopener" href="https://wa.me/${WHATSAPP_HERRAMIENTAS}?text=${encodeURIComponent(waMsg)}">Consultar con Álvaro</a>
+            </div>`}
       </div>
     </article>`;
   }).join('');
+}
+
+function buildFilters(){
+  const hasFeatured = allTools.some(t => t.destacado === true);
+  if(!hasFeatured){
+    filtersEl.innerHTML = '';
+    return;
+  }
+  const cats = ["Todos", "Destacados"];
+  filtersEl.innerHTML = cats.map(c =>
+    `<button class="chip ${c==='Destacados' ? 'chip-featured' : ''} ${c===activeFilter?'active':''}" data-cat="${c}">${c === 'Destacados' ? '★ ' : ''}${c}</button>`
+  ).join('');
+  filtersEl.querySelectorAll('.chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeFilter = btn.dataset.cat;
+      filtersEl.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render();
+    });
+  });
 }
 
 /* ---------- Formulario de ofertas ---------- */
@@ -1162,6 +1206,8 @@ function loadOffersHistory(){
     complete: (results) => {
       const map = {};
       (results.data || []).forEach(row => {
+        const hoja = String(row.Hoja || row.hoja || '').trim();
+        if(hoja && hoja !== 'Herramientas') return;
         const lote = String(row.Lote || row.lote || '').trim();
         const nombre = String(row.Nombre || row.nombre || '').trim();
         const monto = Number(row.Monto || row.monto);
@@ -1270,7 +1316,7 @@ bidForm.addEventListener('submit', async (e) => {
     const res = await fetch(OFFERS_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ lote: t.lote, herramienta: t.nombre, monto, nombre, whatsapp })
+      body: JSON.stringify({ hoja: 'Herramientas', lote: t.lote, item: t.nombre, monto, nombre, whatsapp })
     });
     const data = await res.json();
 
@@ -1301,6 +1347,7 @@ bidForm.addEventListener('submit', async (e) => {
 
 function loadDemo(){
   allTools = DEMO_TOOLS;
+  buildFilters();
   render();
 }
 
@@ -1327,12 +1374,14 @@ function loadFromSheet(){
           fotos: row.fotos || row.Fotos || row.foto || row.Foto || '',
           oferta: row.oferta || row.Oferta || row.oferta_actual || row['Oferta actual'] || '',
           ofertante: row.ofertante || row.Ofertante || '',
-          estado: row.estado || row.Estado || row.vendido || row.Vendido || ''
+          estado: row.estado || row.Estado || row.vendido || row.Vendido || '',
+          destacado: isTrue(row.destacado || row.Destacado || row['Lote destacado'])
         }));
         if(allTools.length === 0){
           grid.innerHTML = '<div class="status">La planilla está vacía. Agregá filas y recargá esta página.</div>';
           return;
         }
+        buildFilters();
         render();
       },
       error:()=>{
