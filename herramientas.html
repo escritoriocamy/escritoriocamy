@@ -187,8 +187,8 @@
 
   @media (max-width:600px){
     .hero{
-      padding:32px 20px 56px;
-      min-height:88vh;
+      padding:28px 20px 40px;
+      min-height:58vh;
       display:flex;
     }
     .hero-video{ object-position:center 30%; }
@@ -196,7 +196,6 @@
       width:100%;
       min-height:100%;
       position:relative;
-      padding-bottom:70px;
     }
     .hero-text{ max-width:100%; }
     .hero-text h1{ font-size:28px; margin-bottom:10px; }
@@ -294,6 +293,7 @@
     font-weight:600;
     color:#a39d84;
   }
+  .lot-media[data-gallery-lote]{ cursor:pointer; }
   .media-tag{
     position:absolute;
     display:flex; align-items:center; gap:5px;
@@ -307,6 +307,11 @@
   .tag-lote{
     top:12px; left:12px;
     background:rgba(28,46,31,.9);
+    color:#fff;
+  }
+  .tag-photos{
+    bottom:12px; right:12px;
+    background:rgba(20,32,15,.85);
     color:#fff;
   }
   .tag-novideo{
@@ -514,7 +519,34 @@
     font-family:'Inter', sans-serif;
     font-size:12.5px;
     color:var(--ink-soft);
-    margin:-6px 0 16px;
+    margin:-6px 0 10px;
+  }
+  .bid-history{
+    margin:0 0 14px;
+    max-height:110px;
+    overflow-y:auto;
+    border:1px solid #e0dccb;
+    border-radius:8px;
+  }
+  .bid-history-item{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:7px 10px;
+    font-family:'Inter', sans-serif;
+    font-size:12px;
+    color:var(--ink);
+    border-bottom:1px solid #efece0;
+  }
+  .bid-history-item:last-child{ border-bottom:none; }
+  .bid-history-item .name{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bid-history-item .amt{ color:var(--gold-700); font-weight:700; flex-shrink:0; }
+  .bid-history-empty{
+    padding:10px;
+    font-family:'Inter', sans-serif;
+    font-size:12px;
+    color:var(--ink-soft);
+    text-align:center;
   }
   .bid-error{
     font-family:'Inter', sans-serif;
@@ -562,6 +594,57 @@
     color:var(--ink-soft);
   }
   .bid-wa-fallback a{ color:var(--gold-700); font-weight:700; text-decoration:underline; }
+
+  /* ---------- Modal de galería de fotos ---------- */
+  .gallery-overlay{
+    position:fixed; inset:0;
+    background:rgba(10,16,7,.9);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:20px;
+    z-index:110;
+  }
+  .gallery-overlay.open{ display:flex; }
+  .gallery-card{
+    background:#0f180b;
+    border-radius:14px;
+    width:100%; max-width:520px;
+    max-height:88vh;
+    overflow-y:auto;
+    position:relative;
+    padding:20px 16px;
+  }
+  .gallery-close{
+    position:absolute; top:12px; right:12px;
+    width:32px; height:32px;
+    border:none; background:rgba(255,255,255,.12);
+    border-radius:50%;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    color:#fff;
+    font-size:18px;
+    line-height:1;
+    z-index:2;
+  }
+  .gallery-close:hover{ background:rgba(255,255,255,.22); }
+  .gallery-title{
+    font-family:'Inter', sans-serif;
+    font-weight:700;
+    font-size:14.5px;
+    color:#f2f0e6;
+    margin:0 0 14px;
+    padding-right:30px;
+  }
+  .gallery-images{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .gallery-images img{
+    width:100%;
+    border-radius:10px;
+    display:block;
+  }
 
   .status{
     text-align:center;
@@ -821,7 +904,7 @@
         <li><a href="#inicio">Inicio</a></li>
         <li><a href="#herramientas">Herramientas</a></li>
         <li><a href="#contacto">Contacto</a></li>
-        <li><a href="index.html">Remate de ganado</a></li>
+        <li><a href="ganado.html">Remate de ganado</a></li>
       </ul>
       <a class="nav-cta" id="navWhatsapp" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.1h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.14.82.84-3.06-.2-.31a8.2 8.2 0 0 1-1.26-4.4c0-4.55 3.71-8.26 8.27-8.26 2.21 0 4.28.86 5.84 2.42a8.19 8.19 0 0 1 2.42 5.84c0 4.56-3.71 8.28-8.27 8.28zm4.53-6.2c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.99-1.22-.73-.66-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.42-.14 0-.31-.01-.48-.01-.17 0-.43.06-.66.31-.23.25-.86.84-.86 2.05 0 1.2.88 2.37 1 2.53.12.17 1.73 2.64 4.2 3.7.59.25 1.05.4 1.4.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
@@ -849,7 +932,7 @@
     </div>
   </section>
 
-  <p class="cross-note" style="margin-top:24px;">🐄 ¿Buscás hacienda? <a href="index.html">Visitá el remate de ganado de Escritorio Camy →</a></p>
+  <p class="cross-note" style="margin-top:24px;">🐄 ¿Buscás hacienda? <a href="ganado.html">Visitá el remate de ganado de Escritorio Camy →</a></p>
 
   <section id="herramientas">
     <main class="grid" id="grid">
@@ -872,7 +955,7 @@
       <div class="row"><strong>Email:</strong> <a href="mailto:escritoriocamy@gmail.com">escritoriocamy@gmail.com</a></div>
     </div>
 
-    <p class="cross-note" style="margin-top:34px;">🐄 <a href="index.html">Volver al remate de ganado de Escritorio Camy →</a></p>
+    <p class="cross-note" style="margin-top:34px;">🐄 <a href="ganado.html">Volver al remate de ganado de Escritorio Camy →</a></p>
   </section>
 
   <div class="bid-overlay" id="bidOverlay">
@@ -882,10 +965,11 @@
         <h3 class="bid-title" id="bidTitle">Ofertar por el lote</h3>
         <p class="bid-subtitle" id="bidSubtitle"></p>
         <p class="bid-current" id="bidCurrent"></p>
+        <div class="bid-history" id="bidHistory"></div>
         <div class="bid-error" id="bidError"></div>
         <form id="bidForm">
           <div class="bid-field">
-            <label for="bidNombre">Tu nombre</label>
+            <label for="bidNombre">Nombre y apellido</label>
             <input type="text" id="bidNombre" required autocomplete="name">
           </div>
           <div class="bid-field">
@@ -908,6 +992,14 @@
     </div>
   </div>
 
+  <div class="gallery-overlay" id="galleryOverlay">
+    <div class="gallery-card">
+      <button class="gallery-close" id="galleryClose" aria-label="Cerrar">✕</button>
+      <p class="gallery-title" id="galleryTitle"></p>
+      <div class="gallery-images" id="galleryImages"></div>
+    </div>
+  </div>
+
   <footer class="foot">© Escritorio Camy — Remate de herramientas</footer>
 
 <script>
@@ -919,6 +1011,9 @@ const TOOLS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaQ49A_M
 
 /* 1b) CONECTÁ ACÁ EL FORMULARIO DE OFERTAS (Google Apps Script) */
 const OFFERS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3Cv00MXY4p0WtxKfho7sRl82UXplx92PV3AXBZQQPVnkcosUnD4e4am4kM7sbR067lw/exec";
+
+/* 1c) Historial público de ofertas (pestaña "OfertasPublicas" publicada como CSV) */
+const OFFERS_HISTORY_CSV_URL = "";
 
 /* Número de WhatsApp de Álvaro Franco (remates de herramientas) */
 const WHATSAPP_HERRAMIENTAS = "59899496888";
@@ -979,12 +1074,16 @@ function normalizeImageUrl(raw){
   return url;
 }
 
-function photoMedia(fotosRaw){
-  const url = normalizeImageUrl(String(fotosRaw || '').split(',')[0]);
-  if(!url){
+function photoMedia(fotosRaw, lote){
+  const urls = String(fotosRaw || '').split(',').map(s => normalizeImageUrl(s)).filter(Boolean);
+  if(!urls.length){
     return `<div class="lot-media ph-empty">${ICONS.photo}</div>`;
   }
-  return `<div class="lot-media"><img src="${url}" alt="" loading="lazy"></div>`;
+  const extra = urls.length > 1 ? `<div class="media-tag tag-photos">📷 +${urls.length} fotos</div>` : '';
+  return `<div class="lot-media" data-gallery-lote="${(lote || '').replace(/"/g,'&quot;')}">
+    <img src="${urls[0]}" alt="" loading="lazy">
+    ${extra}
+  </div>`;
 }
 
 function render(){
@@ -997,7 +1096,7 @@ function render(){
     return `
     <article class="lot">
       <div style="position:relative">
-        ${photoMedia(t.fotos)}
+        ${photoMedia(t.fotos, t.lote)}
         <div class="media-tag tag-lote">${ICONS.tag} LOTE ${t.lote || '-'}</div>
         <div class="media-tag tag-status ${vendido ? 'vendido' : 'disponible'}">${vendido ? 'Vendido' : 'Disponible'}</div>
       </div>
@@ -1039,6 +1138,42 @@ const bidSuccess = document.getElementById('bidSuccess');
 const bidSuccessDetail = document.getElementById('bidSuccessDetail');
 
 let bidActiveLote = null;
+let offersHistory = {};
+
+function renderBidHistory(lote){
+  const bidHistory = document.getElementById('bidHistory');
+  const list = (offersHistory[String(lote)] || []).slice().sort((a,b) => b.monto - a.monto);
+  if(!list.length){
+    bidHistory.innerHTML = `<div class="bid-history-empty">Todavía no hay ofertas registradas para este lote.</div>`;
+    return;
+  }
+  bidHistory.innerHTML = list.map(o =>
+    `<div class="bid-history-item"><span class="name">${o.nombre}</span><span class="amt">${money(o.monto)}</span></div>`
+  ).join('');
+}
+
+function loadOffersHistory(){
+  if(!OFFERS_HISTORY_CSV_URL || OFFERS_HISTORY_CSV_URL.trim() === '') return;
+  if(typeof Papa === 'undefined') return;
+  Papa.parse(OFFERS_HISTORY_CSV_URL, {
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    complete: (results) => {
+      const map = {};
+      (results.data || []).forEach(row => {
+        const lote = String(row.Lote || row.lote || '').trim();
+        const nombre = String(row.Nombre || row.nombre || '').trim();
+        const monto = Number(row.Monto || row.monto);
+        if(!lote || !nombre || !monto) return;
+        if(!map[lote]) map[lote] = [];
+        map[lote].push({ nombre, monto });
+      });
+      offersHistory = map;
+    },
+    error: () => {}
+  });
+}
 
 function openBidModal(lote){
   const t = allTools.find(x => String(x.lote) === String(lote));
@@ -1055,6 +1190,7 @@ function openBidModal(lote){
   const actual = Number(t.oferta) || 0;
   bidCurrent.textContent = actual > 0 ? ('Oferta actual: ' + money(t.oferta)) : 'Todavía no hay ofertas.';
   bidMonto.min = actual > 0 ? (actual + 1) : 1;
+  renderBidHistory(lote);
   const waMsg = 'Hola Álvaro, quiero ofertar por el Lote ' + (t.lote || '') + ' (' + (t.nombre || '') + ').';
   bidWaFallback.innerHTML = `¿Preferís avisarle directo? <a href="https://wa.me/${WHATSAPP_HERRAMIENTAS}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener">Escribile a Álvaro por WhatsApp</a>`;
   bidOverlay.classList.add('open');
@@ -1067,8 +1203,33 @@ function closeBidModal(){
 
 grid.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-bid-lote]');
-  if(btn) openBidModal(btn.dataset.bidLote);
+  if(btn){ openBidModal(btn.dataset.bidLote); return; }
+  const galleryEl = e.target.closest('[data-gallery-lote]');
+  if(galleryEl){ openGallery(galleryEl.dataset.galleryLote); return; }
 });
+
+/* ---------- Galería de fotos ---------- */
+const galleryOverlay = document.getElementById('galleryOverlay');
+const galleryClose = document.getElementById('galleryClose');
+const galleryTitle = document.getElementById('galleryTitle');
+const galleryImages = document.getElementById('galleryImages');
+
+function openGallery(lote){
+  const t = allTools.find(x => String(x.lote) === String(lote));
+  if(!t) return;
+  const urls = String(t.fotos || '').split(',').map(s => normalizeImageUrl(s)).filter(Boolean);
+  if(!urls.length) return;
+  galleryTitle.textContent = (t.nombre || '') + (t.lote ? ' — Lote ' + t.lote : '');
+  galleryImages.innerHTML = urls.map(u => `<img src="${u}" alt="" loading="lazy">`).join('');
+  galleryOverlay.classList.add('open');
+}
+
+function closeGallery(){
+  galleryOverlay.classList.remove('open');
+}
+
+galleryClose.addEventListener('click', closeGallery);
+galleryOverlay.addEventListener('click', (e) => { if(e.target === galleryOverlay) closeGallery(); });
 
 bidClose.addEventListener('click', closeBidModal);
 bidOverlay.addEventListener('click', (e) => { if(e.target === bidOverlay) closeBidModal(); });
@@ -1123,6 +1284,8 @@ bidForm.addEventListener('submit', async (e) => {
 
     t.oferta = String(monto);
     t.ofertante = nombre;
+    if(!offersHistory[String(t.lote)]) offersHistory[String(t.lote)] = [];
+    offersHistory[String(t.lote)].push({ nombre, monto });
     render();
 
     bidFormWrap.style.display = 'none';
@@ -1192,6 +1355,7 @@ try{
 }catch(e){
   loadDemo();
 }
+loadOffersHistory();
 </script>
 
 <!-- =========================================================
