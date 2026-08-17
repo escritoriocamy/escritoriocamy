@@ -303,6 +303,50 @@
     font-weight:600;
     color:#a39d84;
   }
+
+  /* Banner de remate: se muestra completo, sin recortar (los volantes suelen ser verticales) */
+  .remate-media{
+    width:100%;
+    background:#e9e5d3;
+    cursor:pointer;
+  }
+  .remate-media img{
+    width:100%;
+    height:auto;
+    max-height:420px;
+    object-fit:contain;
+    display:block;
+    margin:0 auto;
+  }
+  .remate-lightbox{
+    position:fixed; inset:0;
+    background:rgba(10,16,7,.92);
+    display:none;
+    align-items:center; justify-content:center;
+    padding:24px;
+    z-index:150;
+  }
+  .remate-lightbox.open{ display:flex; }
+  .remate-lightbox img{
+    max-width:100%;
+    max-height:100%;
+    object-fit:contain;
+    border-radius:8px;
+    display:block;
+  }
+  .remate-lightbox-close{
+    position:fixed; top:16px; right:16px;
+    width:38px; height:38px;
+    border:none; background:rgba(255,255,255,.15);
+    border-radius:50%;
+    color:#fff;
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+    z-index:2;
+  }
+  .remate-lightbox-close:hover{ background:rgba(255,255,255,.28); }
+
   .media-tag{
     position:absolute;
     display:flex; align-items:center; gap:5px;
@@ -1483,7 +1527,7 @@ function renderRemates(){
       : `Hola Roger, quiero anotar un lote para el remate "${r.titulo || ''}".`;
     return `
     <article class="lot${herramientas ? '' : ' lot-featured'}">
-      ${r.foto ? `<div class="lot-media"><img src="${normalizeImageUrl(r.foto)}" alt="" loading="lazy"></div>` : ''}
+      ${r.foto ? `<div class="remate-media" data-remate-photo="${normalizeImageUrl(r.foto).replace(/"/g,'&quot;')}"><img src="${normalizeImageUrl(r.foto)}" alt="" loading="lazy"></div>` : ''}
       <div class="lot-body">
         <div class="media-tag tag-status disponible" style="position:static; display:inline-flex; margin-bottom:10px; margin-right:8px;">Próximo remate</div>
         ${herramientas ? `<div class="media-tag tag-featured" style="position:static; display:inline-flex; margin-bottom:10px;">${ICONS.tag} Herramientas</div>` : ''}
@@ -1540,7 +1584,28 @@ if(SHEET_REMATES_CSV_URL && SHEET_REMATES_CSV_URL.trim() !== ""){
 } else {
   loadRematesDemo();
 }
+
+/* ---------- Ver banner de remate completo ---------- */
+document.body.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-remate-photo]');
+  if(el){
+    const url = el.dataset.rematePhoto;
+    document.getElementById('remateLightboxImg').src = url;
+    document.getElementById('remateLightbox').classList.add('open');
+  }
+});
+document.getElementById('remateLightboxClose').addEventListener('click', () => {
+  document.getElementById('remateLightbox').classList.remove('open');
+});
+document.getElementById('remateLightbox').addEventListener('click', (e) => {
+  if(e.target.id === 'remateLightbox') e.currentTarget.classList.remove('open');
+});
 </script>
+
+<div class="remate-lightbox" id="remateLightbox">
+  <button class="remate-lightbox-close" id="remateLightboxClose" aria-label="Cerrar">✕</button>
+  <img id="remateLightboxImg" src="" alt="">
+</div>
 
 </body>
 </html>
