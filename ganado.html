@@ -973,8 +973,12 @@
         <div class="bid-error" id="bidError"></div>
         <form id="bidForm">
           <div class="bid-field">
-            <label for="bidNombre">Nombre y apellido</label>
-            <input type="text" id="bidNombre" required autocomplete="name">
+            <label for="bidNombre">Nombre</label>
+            <input type="text" id="bidNombre" required autocomplete="given-name">
+          </div>
+          <div class="bid-field">
+            <label for="bidApellido">Apellido</label>
+            <input type="text" id="bidApellido" required autocomplete="family-name">
           </div>
           <div class="bid-field">
             <label for="bidWhatsapp">Tu WhatsApp</label>
@@ -1274,6 +1278,7 @@ const bidSubtitle = document.getElementById('bidSubtitle');
 const bidCurrent = document.getElementById('bidCurrent');
 const bidError = document.getElementById('bidError');
 const bidNombre = document.getElementById('bidNombre');
+const bidApellido = document.getElementById('bidApellido');
 const bidWhatsapp = document.getElementById('bidWhatsapp');
 const bidLocalidad = document.getElementById('bidLocalidad');
 const bidMonto = document.getElementById('bidMonto');
@@ -1285,6 +1290,7 @@ const bidSuccessDetail = document.getElementById('bidSuccessDetail');
 let bidActiveLote = null;
 let offersHistory = {};
 
+/* En ganado no mostramos quién ofertó, solo los montos (privacidad) */
 function renderBidHistory(lote){
   const bidHistory = document.getElementById('bidHistory');
   const list = (offersHistory[String(lote)] || []).slice().sort((a,b) => b.monto - a.monto);
@@ -1293,7 +1299,7 @@ function renderBidHistory(lote){
     return;
   }
   bidHistory.innerHTML = list.map(o =>
-    `<div class="bid-history-item"><span class="name">${o.nombre}</span><span class="amt">${money(o.monto)}</span></div>`
+    `<div class="bid-history-item"><span class="name">Oferta</span><span class="amt">${money(o.monto)}</span></div>`
   ).join('');
 }
 
@@ -1363,19 +1369,16 @@ bidForm.addEventListener('submit', async (e) => {
   const l = allLots.find(x => String(x.lote) === String(bidActiveLote));
   if(!l) return;
 
-  const nombre = bidNombre.value.trim();
+  const nombreSolo = bidNombre.value.trim();
+  const apellido = bidApellido.value.trim();
+  const nombre = (nombreSolo + ' ' + apellido).trim();
   const whatsapp = bidWhatsapp.value.trim();
   const localidad = bidLocalidad.value.trim();
   const monto = Number(bidMonto.value);
   const actual = Number(l.oferta) || 0;
 
-  if(!nombre || !whatsapp || !localidad || !monto || monto <= 0){
+  if(!nombreSolo || !apellido || !whatsapp || !localidad || !monto || monto <= 0){
     bidError.textContent = 'Completá todos los datos.';
-    bidError.classList.add('show');
-    return;
-  }
-  if(nombre.indexOf(' ') === -1){
-    bidError.textContent = 'Escribí tu nombre y apellido.';
     bidError.classList.add('show');
     return;
   }
