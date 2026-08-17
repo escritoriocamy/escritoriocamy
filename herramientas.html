@@ -1489,17 +1489,24 @@ function esRemateHerramientas(titulo, detalle){
   return texto.includes('herramient');
 }
 
+function esVirtual(titulo, detalle, fecha){
+  const texto = `${titulo || ''} ${detalle || ''} ${fecha || ''}`.toLowerCase();
+  return texto.includes('virtual');
+}
+
+/* Extrae la PRIMERA fecha dd/mm/aaaa que encuentre en el texto (sirve para fechas
+   simples y para rangos tipo "28/08/2026 hasta el 04/09/2026") */
 function parseFechaHora(fecha, hora){
-  const partes = String(fecha || '').split('/');
-  if(partes.length !== 3) return null;
-  const [dd, mm, yyyy] = partes.map(Number);
+  const m = String(fecha || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(!m) return null;
+  const dd = Number(m[1]), mm = Number(m[2]), yyyy = Number(m[3]);
   let hh = 0, min = 0;
   if(hora){
     const hpartes = String(hora).split(':');
     hh = Number(hpartes[0]) || 0;
     min = Number(hpartes[1]) || 0;
   }
-  const d = new Date(yyyy, (mm || 1) - 1, dd || 1, hh, min, 0);
+  const d = new Date(yyyy, mm - 1, dd, hh, min, 0);
   return isNaN(d.getTime()) ? null : d;
 }
 
@@ -1548,13 +1555,25 @@ function loadCountdown(){
     skipEmptyLines: true,
     complete: (results) => {
       const rows = results.data || [];
-      const remate = rows.find(row => esRemateHerramientas(row.titulo || row.Titulo || row['Título'], row.detalle || row.Detalle));
-      if(!remate) return;
-      const fecha = remate.fecha || remate.Fecha || '';
-      const hora = remate.hora || remate.Hora || '';
-      const titulo = remate.titulo || remate.Titulo || remate['Título'] || '';
-      const target = parseFechaHora(fecha, hora);
-      if(target) startCountdown(target, titulo);
+      const candidatos = rows
+        .map(row => ({
+          titulo: row.titulo || row.Titulo || row['Título'] || '',
+          detalle: row.detalle || row.Detalle || '',
+          fecha: row.fecha || row.Fecha || '',
+          hora: row.hora || row.Hora || ''
+        }))
+        .filter(r => esRemateHerramientas(r.titulo, r.detalle))
+        .map(r => ({ ...r, target: parseFechaHora(r.fecha, r.hora) }))
+        .filter(r => r.target); // solo los que tienen una fecha que se pudo leer
+
+      if(!candidatos.length) return;
+
+      // Preferimos el que diga "virtual"; si no hay, el más próximo en el tiempo
+      candidatos.sort((a, b) => a.target - b.target);
+      const virtual = candidatos.find(r => esVirtual(r.titulo, r.detalle, r.fecha));
+      const elegido = virtual || candidatos[0];
+
+      startCountdown(elegido.target, elegido.titulo);
     },
     error: () => {}
   });
