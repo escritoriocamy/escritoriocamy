@@ -1193,6 +1193,11 @@
 
   <footer class="foot">© Escritorio Camy — Negocios Rurales desde 1908</footer>
 
+  <div class="remate-lightbox" id="remateLightbox">
+    <button class="remate-lightbox-close" id="remateLightboxClose" aria-label="Cerrar">✕</button>
+    <img id="remateLightboxImg" src="" alt="">
+  </div>
+
 <script>
 /* Número de WhatsApp del escritorio (Roger) y de Álvaro (herramientas) */
 const WHATSAPP_NUMBER = "59899342965";
@@ -1384,11 +1389,6 @@ document.getElementById('remateLightbox').addEventListener('click', (e) => {
   if(e.target.id === 'remateLightbox') e.currentTarget.classList.remove('open');
 });
 </script>
-
-<div class="remate-lightbox" id="remateLightbox">
-  <button class="remate-lightbox-close" id="remateLightboxClose" aria-label="Cerrar">✕</button>
-  <img id="remateLightboxImg" src="" alt="">
-</div>
 
 </body>
 </html>
