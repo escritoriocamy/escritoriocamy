@@ -1050,6 +1050,11 @@
 
   <footer class="foot">© Escritorio Camy — Negocios Rurales desde 1908</footer>
 
+  <div class="remate-lightbox" id="remateLightbox">
+    <button class="remate-lightbox-close" id="remateLightboxClose" aria-label="Cerrar">✕</button>
+    <img id="remateLightboxImg" src="" alt="">
+  </div>
+
 <script>
 /* =========================================================
    1) CONECTÁ TU GOOGLE SHEET ACÁ
@@ -1601,11 +1606,6 @@ document.getElementById('remateLightbox').addEventListener('click', (e) => {
   if(e.target.id === 'remateLightbox') e.currentTarget.classList.remove('open');
 });
 </script>
-
-<div class="remate-lightbox" id="remateLightbox">
-  <button class="remate-lightbox-close" id="remateLightboxClose" aria-label="Cerrar">✕</button>
-  <img id="remateLightboxImg" src="" alt="">
-</div>
 
 </body>
 </html>
