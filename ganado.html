@@ -966,7 +966,7 @@
     <div class="bid-card">
       <button class="bid-close" id="bidClose" aria-label="Cerrar">✕</button>
       <div id="bidFormWrap">
-        <h3 class="bid-title" id="bidTitle">Ofertar por el lote</h3>
+        <h3 class="bid-title" id="bidTitle">Preofertar por el lote</h3>
         <p class="bid-subtitle" id="bidSubtitle"></p>
         <p class="bid-current" id="bidCurrent"></p>
         <div class="bid-history" id="bidHistory"></div>
@@ -981,10 +981,14 @@
             <input type="tel" id="bidWhatsapp" required autocomplete="tel" placeholder="09X XXX XXX">
           </div>
           <div class="bid-field">
-            <label for="bidMonto">Tu oferta (US$)</label>
+            <label for="bidLocalidad">Tu localidad</label>
+            <input type="text" id="bidLocalidad" required autocomplete="address-level2" placeholder="Ej: San José, Florida...">
+          </div>
+          <div class="bid-field">
+            <label for="bidMonto">Tu preoferta (US$)</label>
             <input type="number" id="bidMonto" required min="1" step="1">
           </div>
-          <button type="submit" class="bid-submit" id="bidSubmitBtn">Enviar oferta</button>
+          <button type="submit" class="bid-submit" id="bidSubmitBtn">Enviar preoferta</button>
         </form>
         <span class="bid-wa-fallback" id="bidWaFallback"></span>
       </div>
@@ -1187,7 +1191,7 @@ function render(){
         <div class="lot-actions">
           ${estado.toLowerCase() === 'vendido'
             ? ''
-            : `<button type="button" class="lot-whatsapp" data-bid-lote="${(l.lote || '').replace(/"/g,'&quot;')}">Ofertar</button>`}
+            : `<button type="button" class="lot-whatsapp" data-bid-lote="${(l.lote || '').replace(/"/g,'&quot;')}">Preofertar</button>`}
           <a class="lot-whatsapp lot-whatsapp-outline" target="_blank" rel="noopener"
              href="https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola Roger, me interesa el Lote ' + (l.lote || '') + ' (' + (l.categoria || 'sin categoría') + ')')}">
             Consultar con Roger
@@ -1271,6 +1275,7 @@ const bidCurrent = document.getElementById('bidCurrent');
 const bidError = document.getElementById('bidError');
 const bidNombre = document.getElementById('bidNombre');
 const bidWhatsapp = document.getElementById('bidWhatsapp');
+const bidLocalidad = document.getElementById('bidLocalidad');
 const bidMonto = document.getElementById('bidMonto');
 const bidSubmitBtn = document.getElementById('bidSubmitBtn');
 const bidWaFallback = document.getElementById('bidWaFallback');
@@ -1326,8 +1331,8 @@ function openBidModal(lote){
   bidError.classList.remove('show');
   bidForm.reset();
   bidSubmitBtn.disabled = false;
-  bidSubmitBtn.textContent = 'Enviar oferta';
-  bidTitle.textContent = 'Ofertar por el lote ' + (l.lote || '');
+  bidSubmitBtn.textContent = 'Enviar preoferta';
+  bidTitle.textContent = 'Preofertar por el lote ' + (l.lote || '');
   bidSubtitle.textContent = l.categoria || '';
   const actual = Number(l.oferta) || 0;
   bidCurrent.textContent = actual > 0 ? ('Oferta actual: ' + money(l.oferta)) : 'Todavía no hay ofertas.';
@@ -1360,10 +1365,11 @@ bidForm.addEventListener('submit', async (e) => {
 
   const nombre = bidNombre.value.trim();
   const whatsapp = bidWhatsapp.value.trim();
+  const localidad = bidLocalidad.value.trim();
   const monto = Number(bidMonto.value);
   const actual = Number(l.oferta) || 0;
 
-  if(!nombre || !whatsapp || !monto || monto <= 0){
+  if(!nombre || !whatsapp || !localidad || !monto || monto <= 0){
     bidError.textContent = 'Completá todos los datos.';
     bidError.classList.add('show');
     return;
@@ -1374,13 +1380,13 @@ bidForm.addEventListener('submit', async (e) => {
     return;
   }
   if(monto <= actual){
-    bidError.textContent = 'Tu oferta tiene que ser mayor a la oferta actual (' + money(actual) + ').';
+    bidError.textContent = 'Tu preoferta tiene que ser mayor a la oferta actual (' + money(actual) + ').';
     bidError.classList.add('show');
     return;
   }
 
   if(!OFFERS_SCRIPT_URL || OFFERS_SCRIPT_URL.trim() === ''){
-    bidError.textContent = 'El formulario de ofertas todavía no está activado en este sitio. Probá escribiendo directo por WhatsApp.';
+    bidError.textContent = 'El formulario de preofertas todavía no está activado en este sitio. Probá escribiendo directo por WhatsApp.';
     bidError.classList.add('show');
     return;
   }
@@ -1392,15 +1398,15 @@ bidForm.addEventListener('submit', async (e) => {
     const res = await fetch(OFFERS_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ hoja: OFFERS_SHEET_NAME, lote: l.lote, item: l.categoria, monto, nombre, whatsapp })
+      body: JSON.stringify({ hoja: OFFERS_SHEET_NAME, lote: l.lote, item: l.categoria, monto, nombre, whatsapp, localidad })
     });
     const data = await res.json();
 
     if(!data.success){
-      bidError.textContent = data.message || 'No se pudo registrar la oferta. Probá de nuevo.';
+      bidError.textContent = data.message || 'No se pudo registrar la preoferta. Probá de nuevo.';
       bidError.classList.add('show');
       bidSubmitBtn.disabled = false;
-      bidSubmitBtn.textContent = 'Enviar oferta';
+      bidSubmitBtn.textContent = 'Enviar preoferta';
       return;
     }
 
@@ -1411,13 +1417,13 @@ bidForm.addEventListener('submit', async (e) => {
     render();
 
     bidFormWrap.style.display = 'none';
-    bidSuccessDetail.textContent = 'Ofertaste ' + money(monto) + ' por el Lote ' + (l.lote || '') + '. Roger te va a contactar por WhatsApp si tu oferta gana.';
+    bidSuccessDetail.textContent = 'Preofertaste ' + money(monto) + ' por el Lote ' + (l.lote || '') + '. Roger te va a contactar por WhatsApp si tu preoferta gana.';
     bidSuccess.style.display = '';
   }catch(err){
     bidError.textContent = 'No se pudo conectar. Revisá tu conexión e intentá de nuevo.';
     bidError.classList.add('show');
     bidSubmitBtn.disabled = false;
-    bidSubmitBtn.textContent = 'Enviar oferta';
+    bidSubmitBtn.textContent = 'Enviar preoferta';
   }
 });
 
