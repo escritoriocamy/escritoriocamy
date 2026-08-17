@@ -187,14 +187,21 @@
 
   .hero-cta{ display:none; }
 
+  .hero-video-overlay{
+    position:absolute; inset:0;
+    background: linear-gradient(160deg, rgba(20,32,15,.78) 0%, rgba(16,26,12,.72) 55%, rgba(14,22,10,.85) 100%);
+    z-index:1;
+    pointer-events:none;
+  }
+
   .home-choices{
     position:relative;
     z-index:3;
     display:flex;
     flex-direction:column;
-    gap:14px;
+    gap:16px;
     max-width:1200px;
-    margin:28px auto 0;
+    margin:32px auto 0;
     padding:0 20px 8px;
   }
   @media (min-width:700px){
@@ -205,36 +212,45 @@
     display:flex;
     flex-direction:column;
     align-items:flex-start;
-    gap:4px;
-    background:rgba(255,255,255,.08);
-    border:1.5px solid rgba(255,255,255,.35);
-    border-radius:12px;
-    padding:16px 18px;
+    gap:6px;
+    background:rgba(15,24,11,.72);
+    border:1.5px solid rgba(255,255,255,.18);
+    border-radius:14px;
+    padding:22px 22px 20px;
     text-decoration:none;
-    transition:background .15s ease, border-color .15s ease;
+    box-shadow:0 6px 20px rgba(0,0,0,.25);
+    transition:background .15s ease, border-color .15s ease, transform .15s ease;
   }
-  .home-choice:hover{ background:rgba(255,255,255,.16); border-color:var(--gold-600); }
+  .home-choice:hover{ background:rgba(20,32,15,.9); border-color:var(--gold-600); transform:translateY(-2px); }
   .home-choice .kicker{
     font-family:'Inter', sans-serif;
     font-size:11px;
     font-weight:700;
-    letter-spacing:.05em;
+    letter-spacing:.06em;
     text-transform:uppercase;
     color:var(--gold-600);
   }
   .home-choice .choice-title{
     font-family:'Source Serif 4', serif;
     font-weight:700;
-    font-size:19px;
+    font-size:21px;
     color:#f7f4e9;
+    margin-bottom:2px;
   }
   .home-choice .choice-cta{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    margin-top:8px;
+    background:var(--gold-600);
+    color:#1f1a0f;
     font-family:'Inter', sans-serif;
-    font-size:12.5px;
+    font-size:13px;
     font-weight:700;
-    color:#cddccb;
-    margin-top:4px;
+    padding:9px 16px;
+    border-radius:999px;
   }
+  .home-choice .choice-cta svg{ width:14px; height:14px; }
 
   @media (min-width:601px){
     .hero{ min-height:62vh; align-items:center; }
@@ -907,6 +923,7 @@
     <video class="hero-video" autoplay muted loop playsinline preload="auto">
       <source src="camy.mp4" type="video/mp4">
     </video>
+    <div class="hero-video-overlay"></div>
     <div class="hero-inner">
       <div class="hero-text">
         <h1>El martillo hace la diferencia</h1>
@@ -918,12 +935,12 @@
       <a class="home-choice" href="ganado.html">
         <span class="kicker">Escritorio Camy</span>
         <span class="choice-title">Remate de ganado</span>
-        <span class="choice-cta">Ver lotes →</span>
+        <span class="choice-cta">Ver lotes <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
       </a>
       <a class="home-choice" href="herramientas.html">
         <span class="kicker">Escritorio Camy</span>
         <span class="choice-title">Remate de herramientas</span>
-        <span class="choice-cta">Ver herramientas →</span>
+        <span class="choice-cta">Ver herramientas <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
       </a>
     </div>
   </section>
