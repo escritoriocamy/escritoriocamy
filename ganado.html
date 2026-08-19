@@ -1300,7 +1300,7 @@ function render(){
           </div>
           <div class="spec-row">
             <div class="spec-cell"><div class="spec-label">Preoferta actual</div><div class="spec-value">${l.oferta ? money(l.oferta) : 'Sin preofertas'}</div></div>
-            <div class="spec-cell"><div class="spec-label">Base</div><div class="spec-value">${l.base ? money(l.base) : '—'}</div></div>
+            ${l.base ? `<div class="spec-cell"><div class="spec-label">Base</div><div class="spec-value">${money(l.base)}</div></div>` : ''}
           </div>
         </div>
         ${l.comentario ? `<p class="lot-note">${l.comentario}</p>` : ''}
