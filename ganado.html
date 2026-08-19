@@ -1216,12 +1216,14 @@ function getCategoryIcon(categoria){
   return isSheepCategory(categoria) ? ICONS.sheep : ICONS.cow;
 }
 
-/* Agrupa variantes de una misma categoría bajo un solo filtro
-   (ej: "Vaquillonas" y "Vaquillonas próximas" cuentan como una sola) */
-function normalizeCategoriaFiltro(categoria){
-  const c = (categoria || '').toLowerCase();
-  if(c.includes('vaquillona')) return 'Vaquillonas';
-  return categoria;
+/* Agrupa las vaquillonas por raza (ej: "Vaq. Holando", "Vaq. Angus"),
+   así no quedan todas mezcladas en un solo filtro genérico */
+function normalizeCategoriaFiltro(l){
+  const c = (l.categoria || '').toLowerCase();
+  if(c.includes('vaquillona')){
+    return l.raza ? ('Vaq. ' + l.raza) : 'Vaquillonas';
+  }
+  return l.categoria;
 }
 
 function embedMedia(url){
@@ -1233,6 +1235,21 @@ function embedMedia(url){
   return { html:`<div class="lot-media"><video src="${url}" controls playsinline preload="metadata"></video></div>`, hasVideo:true };
 }
 
+/* Arma el mensaje de WhatsApp con toda la info disponible del lote */
+function buildLotWaMessage(l){
+  const lineas = [`Hola Roger, me interesa el Lote ${l.lote || ''}:`];
+  if(l.categoria) lineas.push(`Categoría: ${l.categoria}`);
+  if(l.raza) lineas.push(`Raza: ${l.raza}`);
+  if(l.cabezas) lineas.push(`Cabezas: ${l.cabezas}`);
+  if(l.peso) lineas.push(`Peso prom.: ${l.peso} kg`);
+  if(l.ubicacion) lineas.push(`Ubicación: ${l.ubicacion}`);
+  if(l.base) lineas.push(`Base: ${money(l.base)}`);
+  if(l.oferta) lineas.push(`Preoferta actual: ${money(l.oferta)}`);
+  if(l.estado) lineas.push(`Estado: ${l.estado}`);
+  if(l.comentario) lineas.push(`Comentario: ${l.comentario}`);
+  return lineas.join('\n');
+}
+
 function render(){
   const items = activeCategory === "Todos"
     ? allLots
@@ -1240,7 +1257,7 @@ function render(){
       ? allLots.filter(l => l.destacado === true)
       : activeCategory === "Ovinos"
         ? allLots.filter(l => isSheepCategory(l.categoria))
-        : allLots.filter(l => normalizeCategoriaFiltro(l.categoria) === activeCategory);
+        : allLots.filter(l => normalizeCategoriaFiltro(l) === activeCategory);
 
   if(items.length === 0){
     grid.innerHTML = activeCategory === "Destacados"
@@ -1268,7 +1285,7 @@ function render(){
         ${l.destacado ? `<div class="media-tag tag-featured">★ Destacado</div>` : ''}
       </div>
       <div class="lot-body">
-        <h3 class="lot-cat">${l.categoria || 'Sin categoría'}</h3>
+        <h3 class="lot-cat">${normalizeCategoriaFiltro(l) || 'Sin categoría'}</h3>
         <div class="lot-underline"></div>
         <div class="lot-specs">
           <div class="spec-row">
@@ -1292,7 +1309,7 @@ function render(){
             ? ''
             : `<button type="button" class="lot-whatsapp" data-bid-lote="${(l.lote || '').replace(/"/g,'&quot;')}">Preofertar</button>`}
           <a class="lot-whatsapp lot-whatsapp-outline" target="_blank" rel="noopener"
-             href="https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola Roger, me interesa el Lote ' + (l.lote || '') + ' (' + (l.categoria || 'sin categoría') + ')')}">
+             href="https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildLotWaMessage(l))}">
             Consultar con Roger
           </a>
         </div>
@@ -1304,7 +1321,7 @@ function render(){
 function buildFilters(){
   const hasFeatured = allLots.some(l => l.destacado === true);
   const hasSheep = allLots.some(l => isSheepCategory(l.categoria));
-  const cats = ["Todos", ...(hasFeatured ? ["Destacados"] : []), ...(hasSheep ? ["Ovinos"] : []), ...new Set(allLots.map(l => normalizeCategoriaFiltro(l.categoria)).filter(Boolean))];
+  const cats = ["Todos", ...(hasFeatured ? ["Destacados"] : []), ...(hasSheep ? ["Ovinos"] : []), ...new Set(allLots.map(l => normalizeCategoriaFiltro(l)).filter(Boolean))];
   filtersEl.innerHTML = cats.map(c =>
     `<button class="chip ${c==='Destacados' ? 'chip-featured' : ''} ${c===activeCategory?'active':''}" data-cat="${c}">${c === 'Destacados' ? '★' : c === 'Ovinos' ? ICONS.sheep : getCategoryIcon(c)}${c}</button>`
   ).join('');
