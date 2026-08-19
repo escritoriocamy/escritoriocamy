@@ -1216,6 +1216,14 @@ function getCategoryIcon(categoria){
   return isSheepCategory(categoria) ? ICONS.sheep : ICONS.cow;
 }
 
+/* Agrupa variantes de una misma categoría bajo un solo filtro
+   (ej: "Vaquillonas" y "Vaquillonas próximas" cuentan como una sola) */
+function normalizeCategoriaFiltro(categoria){
+  const c = (categoria || '').toLowerCase();
+  if(c.includes('vaquillona')) return 'Vaquillonas';
+  return categoria;
+}
+
 function embedMedia(url){
   if(!url) return { html:'<div class="lot-media empty">Sin video</div>', hasVideo:false };
   const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]+)/);
@@ -1232,7 +1240,7 @@ function render(){
       ? allLots.filter(l => l.destacado === true)
       : activeCategory === "Ovinos"
         ? allLots.filter(l => isSheepCategory(l.categoria))
-        : allLots.filter(l => l.categoria === activeCategory);
+        : allLots.filter(l => normalizeCategoriaFiltro(l.categoria) === activeCategory);
 
   if(items.length === 0){
     grid.innerHTML = activeCategory === "Destacados"
@@ -1296,7 +1304,7 @@ function render(){
 function buildFilters(){
   const hasFeatured = allLots.some(l => l.destacado === true);
   const hasSheep = allLots.some(l => isSheepCategory(l.categoria));
-  const cats = ["Todos", ...(hasFeatured ? ["Destacados"] : []), ...(hasSheep ? ["Ovinos"] : []), ...new Set(allLots.map(l => l.categoria).filter(Boolean))];
+  const cats = ["Todos", ...(hasFeatured ? ["Destacados"] : []), ...(hasSheep ? ["Ovinos"] : []), ...new Set(allLots.map(l => normalizeCategoriaFiltro(l.categoria)).filter(Boolean))];
   filtersEl.innerHTML = cats.map(c =>
     `<button class="chip ${c==='Destacados' ? 'chip-featured' : ''} ${c===activeCategory?'active':''}" data-cat="${c}">${c === 'Destacados' ? '★' : c === 'Ovinos' ? ICONS.sheep : getCategoryIcon(c)}${c}</button>`
   ).join('');
