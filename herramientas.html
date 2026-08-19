@@ -1201,6 +1201,16 @@ function photoMedia(fotosRaw, lote){
   </div>`;
 }
 
+function buildToolWaMessage(t){
+  const lineas = [`Hola Álvaro, tengo una consulta sobre el Lote ${t.lote || ''}:`];
+  if(t.nombre) lineas.push(`Herramienta: ${t.nombre}`);
+  if(t.descripcion) lineas.push(`Descripción: ${t.descripcion}`);
+  if(t.base) lineas.push(`Base: ${money(t.base)}`);
+  if(t.oferta) lineas.push(`Oferta actual: ${money(t.oferta)}`);
+  if(t.estado) lineas.push(`Estado: ${t.estado}`);
+  return lineas.join('\n');
+}
+
 function render(){
   if(!allTools.length){
     grid.innerHTML = '<div class="status">Por el momento no hay herramientas cargadas.</div>';
@@ -1214,7 +1224,7 @@ function render(){
   const sorted = [...items].sort((a, b) => (b.destacado === true) - (a.destacado === true));
   grid.innerHTML = sorted.map((t) => {
     const vendido = isTrue(t.estado);
-    const waMsg = 'Hola Álvaro, tengo una consulta sobre el Lote ' + (t.lote || '') + ' (' + (t.nombre || '') + ').';
+    const waMsg = buildToolWaMessage(t);
     return `
     <article class="lot${t.destacado ? ' lot-featured' : ''}">
       <div style="position:relative">
