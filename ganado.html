@@ -1296,10 +1296,10 @@ function render(){
           <div class="spec-row">
             <div class="spec-cell"><div class="spec-label">Lote</div><div class="spec-value">${l.lote || '—'}</div></div>
             <div class="spec-cell"><div class="spec-label">Ubicación</div><div class="spec-value">${l.ubicacion || '—'}</div></div>
-            <div class="spec-cell"><div class="spec-label">Estado</div><div class="spec-value">${estado}</div></div>
+            <div class="spec-cell"><div class="spec-label">Preoferta actual</div><div class="spec-value">${l.oferta ? money(l.oferta) : 'Sin preofertas'}</div></div>
           </div>
           <div class="spec-row">
-            <div class="spec-cell"><div class="spec-label">Preoferta actual</div><div class="spec-value">${l.oferta ? money(l.oferta) : 'Sin preofertas'}</div></div>
+            <div class="spec-cell"><div class="spec-label">Estado</div><div class="spec-value">${estado}</div></div>
             ${l.base ? `<div class="spec-cell"><div class="spec-label">Base</div><div class="spec-value">${money(l.base)}</div></div>` : ''}
           </div>
         </div>
@@ -1458,7 +1458,7 @@ function openBidModal(lote){
   bidCurrent.textContent = actual > 0 ? ('Preoferta actual: ' + money(l.oferta)) : 'Todavía no hay preofertas.';
   bidMonto.min = Math.max(base, actual > 0 ? actual + 1 : 1);
   renderBidHistory(lote);
-  const waMsg = 'Hola Roger, quiero ofertar por el Lote ' + (l.lote || '') + ' (' + (l.categoria || '') + ').';
+  const waMsg = buildLotWaMessage(l);
   bidWaFallback.innerHTML = `¿Preferís avisarle directo? <a href="https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener">Escribile a Roger por WhatsApp</a>`;
   bidOverlay.classList.add('open');
 }
