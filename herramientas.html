@@ -1350,7 +1350,7 @@ function openBidModal(lote){
   bidCurrent.textContent = actual > 0 ? ('Preoferta actual: ' + money(t.oferta)) : 'Todavía no hay preofertas.';
   bidMonto.min = Math.max(base, actual > 0 ? actual + 1 : 1);
   renderBidHistory(lote);
-  const waMsg = 'Hola Álvaro, quiero preofertar por el Lote ' + (t.lote || '') + ' (' + (t.nombre || '') + ').';
+  const waMsg = buildToolWaMessage(t);
   bidWaFallback.innerHTML = `¿Preferís avisarle directo? <a href="https://wa.me/${WHATSAPP_HERRAMIENTAS}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener">Escribile a Álvaro por WhatsApp</a>`;
   bidOverlay.classList.add('open');
 }
