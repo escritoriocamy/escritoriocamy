@@ -229,13 +229,62 @@
     .hero-cta svg{ width:15px; height:15px; }
   }
 
+  /* ---------- BUSCADOR DE LOTES ---------- */
+  .lot-search-wrap{
+    max-width:520px;
+    margin:36px auto 0;
+    padding:0 16px;
+  }
+  .lot-search{
+    width:100%;
+    padding:12px 16px;
+    border-radius:999px;
+    border:1.5px solid var(--line);
+    background:var(--card);
+    font-family:'Inter', sans-serif;
+    font-size:14px;
+    color:var(--ink);
+    transition:border-color .15s ease;
+  }
+  .lot-search:focus{ outline:none; border-color:var(--gold-600); }
+  .lot-search::placeholder{ color:var(--ink-soft); }
+
+  /* ---------- CARGAR MÁS ---------- */
+  .load-more-wrap{
+    text-align:center;
+    padding:8px 16px 40px;
+  }
+  .load-more-count{
+    font-family:'Inter', sans-serif;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin:0 0 14px;
+  }
+  .load-more-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background:var(--olive-900);
+    color:#fff;
+    border:none;
+    padding:12px 26px;
+    border-radius:999px;
+    font-family:'Inter', sans-serif;
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+    transition:background .15s ease, transform .12s ease-out;
+  }
+  .load-more-btn:hover{ background:var(--olive-800); }
+  .load-more-btn:active{ transform:scale(.97); }
+
   /* ---------- FILTERS ---------- */
   .filters{
     display:flex;
     flex-wrap:wrap;
     gap:8px;
     justify-content:center;
-    padding:32px 16px 4px;
+    padding:20px 16px 4px;
     max-width:1000px;
     margin:0 auto;
   }
@@ -953,10 +1002,17 @@
   </section>
 
   <section id="lotes">
+    <div class="lot-search-wrap">
+      <input type="search" id="lotSearch" class="lot-search" placeholder="Buscar por lote, categoría o raza...">
+    </div>
     <nav class="filters" id="filters"></nav>
     <main class="grid" id="grid">
       <div class="status">Cargando lotes…</div>
     </main>
+    <div class="load-more-wrap" id="loadMoreWrap" style="display:none;">
+      <p class="load-more-count" id="loadMoreCount"></p>
+      <button type="button" class="load-more-btn" id="loadMoreBtn">Cargar más lotes</button>
+    </div>
   </section>
 
   <section class="section" id="remates">
@@ -1250,8 +1306,12 @@ function buildLotWaMessage(l){
   return lineas.join('\n');
 }
 
+const PAGE_SIZE = 20;
+let visibleCount = PAGE_SIZE;
+let searchTerm = "";
+
 function render(){
-  const items = activeCategory === "Todos"
+  let items = activeCategory === "Todos"
     ? allLots
     : activeCategory === "Destacados"
       ? allLots.filter(l => l.destacado === true)
@@ -1259,17 +1319,30 @@ function render(){
         ? allLots.filter(l => isSheepCategory(l.categoria))
         : allLots.filter(l => normalizeCategoriaFiltro(l) === activeCategory);
 
+  if(searchTerm){
+    const q = searchTerm.toLowerCase();
+    items = items.filter(l =>
+      String(l.lote || '').toLowerCase().includes(q) ||
+      String(l.categoria || '').toLowerCase().includes(q) ||
+      String(l.raza || '').toLowerCase().includes(q)
+    );
+  }
+
   if(items.length === 0){
-    grid.innerHTML = activeCategory === "Destacados"
-      ? '<div class="status">Todavía no hay lotes marcados como destacados.</div>'
-      : '<div class="status">No hay lotes cargados todavía en esta categoría.</div>';
+    grid.innerHTML = searchTerm
+      ? '<div class="status">No encontramos ningún lote con esa búsqueda.</div>'
+      : activeCategory === "Destacados"
+        ? '<div class="status">Todavía no hay lotes marcados como destacados.</div>'
+        : '<div class="status">No hay lotes cargados todavía en esta categoría.</div>';
+    document.getElementById('loadMoreWrap').style.display = 'none';
     return;
   }
 
   /* Los lotes destacados se muestran primero, pero siempre dentro de su misma categoría */
   const sorted = [...items].sort((a, b) => (b.destacado === true) - (a.destacado === true));
+  const visible = sorted.slice(0, visibleCount);
 
-  grid.innerHTML = sorted.map((l) => {
+  grid.innerHTML = visible.map((l) => {
     const media = embedMedia(l.video);
     const estado = (l.estado || 'Disponible').trim();
     const estadoClass = estado.toLowerCase() === 'vendido' ? 'vendido'
@@ -1316,7 +1389,33 @@ function render(){
       </div>
     </article>`;
   }).join('');
+
+  const loadMoreWrap = document.getElementById('loadMoreWrap');
+  const loadMoreCount = document.getElementById('loadMoreCount');
+  const loadMoreBtn = document.getElementById('loadMoreBtn');
+  if(visible.length < sorted.length){
+    loadMoreWrap.style.display = '';
+    loadMoreBtn.style.display = '';
+    loadMoreCount.textContent = `Mostrando ${visible.length} de ${sorted.length} lotes`;
+  } else if(sorted.length > PAGE_SIZE){
+    loadMoreWrap.style.display = '';
+    loadMoreBtn.style.display = 'none';
+    loadMoreCount.textContent = `Mostrando los ${sorted.length} lotes`;
+  } else {
+    loadMoreWrap.style.display = 'none';
+  }
 }
+
+document.getElementById('loadMoreBtn').addEventListener('click', () => {
+  visibleCount += PAGE_SIZE;
+  render();
+});
+
+document.getElementById('lotSearch').addEventListener('input', (e) => {
+  searchTerm = e.target.value.trim();
+  visibleCount = PAGE_SIZE;
+  render();
+});
 
 function buildFilters(){
   const hasFeatured = allLots.some(l => l.destacado === true);
@@ -1328,6 +1427,7 @@ function buildFilters(){
   filtersEl.querySelectorAll('.chip').forEach(btn => {
     btn.addEventListener('click', () => {
       activeCategory = btn.dataset.cat;
+      visibleCount = PAGE_SIZE;
       filtersEl.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       render();
