@@ -1011,7 +1011,6 @@
     </main>
     <div class="load-more-wrap" id="loadMoreWrap" style="display:none;">
       <p class="load-more-count" id="loadMoreCount"></p>
-      <button type="button" class="load-more-btn" id="loadMoreBtn">Cargar más lotes</button>
     </div>
   </section>
 
@@ -1392,24 +1391,26 @@ function render(){
 
   const loadMoreWrap = document.getElementById('loadMoreWrap');
   const loadMoreCount = document.getElementById('loadMoreCount');
-  const loadMoreBtn = document.getElementById('loadMoreBtn');
   if(visible.length < sorted.length){
     loadMoreWrap.style.display = '';
-    loadMoreBtn.style.display = '';
-    loadMoreCount.textContent = `Mostrando ${visible.length} de ${sorted.length} lotes`;
+    loadMoreCount.textContent = `Mostrando ${visible.length} de ${sorted.length} lotes — seguí bajando para ver más`;
   } else if(sorted.length > PAGE_SIZE){
     loadMoreWrap.style.display = '';
-    loadMoreBtn.style.display = 'none';
     loadMoreCount.textContent = `Mostrando los ${sorted.length} lotes`;
   } else {
     loadMoreWrap.style.display = 'none';
   }
 }
 
-document.getElementById('loadMoreBtn').addEventListener('click', () => {
-  visibleCount += PAGE_SIZE;
-  render();
-});
+/* Scroll infinito: carga más lotes solo a medida que el usuario se acerca al final */
+const loadMoreObserver = new IntersectionObserver((entries) => {
+  if(entries[0].isIntersecting){
+    const before = visibleCount;
+    visibleCount += PAGE_SIZE;
+    if(visibleCount !== before) render();
+  }
+}, { rootMargin: '400px' });
+loadMoreObserver.observe(document.getElementById('loadMoreWrap'));
 
 document.getElementById('lotSearch').addEventListener('input', (e) => {
   searchTerm = e.target.value.trim();
