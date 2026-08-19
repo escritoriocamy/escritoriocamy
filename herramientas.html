@@ -1097,7 +1097,6 @@
     </main>
     <div class="load-more-wrap" id="loadMoreWrap" style="display:none;">
       <p class="load-more-count" id="loadMoreCount"></p>
-      <button type="button" class="load-more-btn" id="loadMoreBtn">Cargar más herramientas</button>
     </div>
   </section>
 
@@ -1225,6 +1224,28 @@ function isTrue(v){
   return s === 'si' || s === 'sí' || s === 'true' || s === '1' || s === 'x' || s === 'vendido';
 }
 
+/* Detecta la categoría de una herramienta a partir de palabras clave en su nombre,
+   sin necesidad de cargar una columna "categoria" en el Sheets */
+function autoCategoria(nombre){
+  const n = (nombre || '').toLowerCase();
+  const reglas = [
+    { cat: 'Tractores', kw: ['tractor'] },
+    { cat: 'Cosechadoras', kw: ['cosechadora'] },
+    { cat: 'Camiones y vehículos', kw: ['camion', 'camión', 'trailer', 'zorra', 'chata', 'volkswagen', 'ford', ' gol', 'jac', 'furgon', 'furgón', 'utilitario'] },
+    { cat: 'Implementos de labranza', kw: ['arado', 'rastrillo', 'rotativa', 'pastera', 'sembradora', 'fertilizadora', 'cortadora', 'maicero'] },
+    { cat: 'Motosierras y herramientas', kw: ['motosierra', 'amoladora', 'taladro', 'soldadora'] },
+    { cat: 'Cercos y electrificadores', kw: ['electrificador', 'portera', 'alambre'] },
+    { cat: 'Cisternas y tanques', kw: ['cisterna', 'tanque'] },
+    { cat: 'Neumáticos y repuestos', kw: ['cubierta', 'eje', 'rodado', 'llanta'] },
+    { cat: 'Guinches y traillas', kw: ['guinche', 'trailla'] },
+    { cat: 'Aves y granja', kw: ['comedero', 'gallina', 'bebedero'] },
+  ];
+  for(const r of reglas){
+    if(r.kw.some(k => n.includes(k))) return r.cat;
+  }
+  return 'Otros';
+}
+
 function money(v){
   const n = Number(String(v || '').replace(/[^0-9.-]/g,''));
   if(!n && n !== 0) return '';
@@ -1277,7 +1298,11 @@ function render(){
     document.getElementById('loadMoreWrap').style.display = 'none';
     return;
   }
-  let items = activeFilter === "Destacados" ? allTools.filter(t => t.destacado === true) : allTools;
+  let items = activeFilter === "Destacados"
+    ? allTools.filter(t => t.destacado === true)
+    : activeFilter === "Todos"
+      ? allTools
+      : allTools.filter(t => autoCategoria(t.nombre) === activeFilter);
   if(searchTerm){
     const q = searchTerm.toLowerCase();
     items = items.filter(t =>
@@ -1286,7 +1311,7 @@ function render(){
     );
   }
   if(!items.length){
-    grid.innerHTML = `<div class="status">${searchTerm ? 'No encontramos ninguna herramienta con esa búsqueda.' : 'Todavía no hay herramientas marcadas como destacadas.'}</div>`;
+    grid.innerHTML = `<div class="status">${searchTerm ? 'No encontramos ninguna herramienta con esa búsqueda.' : 'No hay herramientas cargadas todavía en esta categoría.'}</div>`;
     document.getElementById('loadMoreWrap').style.display = 'none';
     return;
   }
@@ -1326,24 +1351,26 @@ function render(){
 
   const loadMoreWrap = document.getElementById('loadMoreWrap');
   const loadMoreCount = document.getElementById('loadMoreCount');
-  const loadMoreBtn = document.getElementById('loadMoreBtn');
   if(visible.length < sorted.length){
     loadMoreWrap.style.display = '';
-    loadMoreBtn.style.display = '';
-    loadMoreCount.textContent = `Mostrando ${visible.length} de ${sorted.length} herramientas`;
+    loadMoreCount.textContent = `Mostrando ${visible.length} de ${sorted.length} herramientas — seguí bajando para ver más`;
   } else if(sorted.length > PAGE_SIZE){
     loadMoreWrap.style.display = '';
-    loadMoreBtn.style.display = 'none';
     loadMoreCount.textContent = `Mostrando las ${sorted.length} herramientas`;
   } else {
     loadMoreWrap.style.display = 'none';
   }
 }
 
-document.getElementById('loadMoreBtn').addEventListener('click', () => {
-  visibleCount += PAGE_SIZE;
-  render();
-});
+/* Scroll infinito: carga más lotes solo a medida que el usuario se acerca al final */
+const loadMoreObserver = new IntersectionObserver((entries) => {
+  if(entries[0].isIntersecting){
+    const before = visibleCount;
+    visibleCount += PAGE_SIZE;
+    if(visibleCount !== before) render();
+  }
+}, { rootMargin: '400px' });
+loadMoreObserver.observe(document.getElementById('loadMoreWrap'));
 
 document.getElementById('lotSearch').addEventListener('input', (e) => {
   searchTerm = e.target.value.trim();
@@ -1353,11 +1380,8 @@ document.getElementById('lotSearch').addEventListener('input', (e) => {
 
 function buildFilters(){
   const hasFeatured = allTools.some(t => t.destacado === true);
-  if(!hasFeatured){
-    filtersEl.innerHTML = '';
-    return;
-  }
-  const cats = ["Todos", "Destacados"];
+  const categorias = [...new Set(allTools.map(t => autoCategoria(t.nombre)))].sort();
+  const cats = ["Todos", ...(hasFeatured ? ["Destacados"] : []), ...categorias];
   filtersEl.innerHTML = cats.map(c =>
     `<button class="chip ${c==='Destacados' ? 'chip-featured' : ''} ${c===activeFilter?'active':''}" data-cat="${c}">${c === 'Destacados' ? '★ ' : ''}${c}</button>`
   ).join('');
