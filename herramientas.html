@@ -1234,16 +1234,11 @@ function isTrue(v){
 function autoCategoria(nombre){
   const n = (nombre || '').toLowerCase();
   const reglas = [
-    { cat: 'Tractores', kw: ['tractor'] },
-    { cat: 'Cosechadoras', kw: ['cosechadora'] },
-    { cat: 'Camiones y vehículos', kw: ['camion', 'camión', 'trailer', 'zorra', 'chata', 'volkswagen', 'ford', ' gol', 'jac', 'furgon', 'furgón', 'utilitario'] },
-    { cat: 'Implementos de labranza', kw: ['arado', 'rastrillo', 'rotativa', 'pastera', 'sembradora', 'fertilizadora', 'cortadora', 'maicero'] },
-    { cat: 'Motosierras y herramientas', kw: ['motosierra', 'amoladora', 'taladro', 'soldadora'] },
-    { cat: 'Cercos y electrificadores', kw: ['electrificador', 'portera', 'alambre'] },
-    { cat: 'Cisternas y tanques', kw: ['cisterna', 'tanque'] },
-    { cat: 'Neumáticos y repuestos', kw: ['cubierta', 'eje', 'rodado', 'llanta'] },
-    { cat: 'Guinches y traillas', kw: ['guinche', 'trailla'] },
-    { cat: 'Aves y granja', kw: ['comedero', 'gallina', 'bebedero'] },
+    { cat: 'Tractores y cosechadoras', kw: ['tractor', 'cosechadora'] },
+    { cat: 'Vehículos', kw: ['camion', 'camión', 'trailer', 'zorra', 'chata', 'volkswagen', 'ford', ' gol', 'jac', 'furgon', 'furgón', 'utilitario'] },
+    { cat: 'Implementos agrícolas', kw: ['arado', 'rastrillo', 'rotativa', 'pastera', 'sembradora', 'fertilizadora', 'cortadora', 'maicero', 'pala', 'guinche', 'trailla'] },
+    { cat: 'Herramientas y taller', kw: ['motosierra', 'amoladora', 'taladro', 'soldadora', 'morsa', 'morza', 'excentrica', 'excéntrica', 'terraja'] },
+    { cat: 'Cercos e infraestructura', kw: ['electrificador', 'portera', 'alambre', 'pincho', 'cisterna', 'tanque', 'comedero', 'gallina', 'bebedero'] },
   ];
   for(const r of reglas){
     if(r.kw.some(k => n.includes(k))) return r.cat;
