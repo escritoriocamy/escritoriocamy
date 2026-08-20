@@ -1180,13 +1180,13 @@
    1) CONECTÁ TU GOOGLE SHEET DE HERRAMIENTAS ACÁ
    (dejalo vacío para usar la lista de ejemplo)
    ========================================================= */
-const TOOLS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaQ49A_M3H3V-FSRdZ4Kb9lFmk4wnR8xlegdrndcuAa2Iku7_RptSh9UO-loJdK-8f3JyyQkc--n36/pub?gid=928735234&single=true&output=csv";
+const TOOLS_CSV_URL = "https://docs.google.com/spreadsheets/d/1FIx0IEwImr1sSmUgJ_fLyZhQTnCCIxAforaV27MItE4/export?format=csv&gid=928735234";
 
 /* 1b) CONECTÁ ACÁ EL FORMULARIO DE OFERTAS (Google Apps Script) */
 const OFFERS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3Cv00MXY4p0WtxKfho7sRl82UXplx92PV3AXBZQQPVnkcosUnD4e4am4kM7sbR067lw/exec";
 
 /* 1c) Historial público de ofertas (pestaña "OfertasPublicas" publicada como CSV) */
-const OFFERS_HISTORY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaQ49A_M3H3V-FSRdZ4Kb9lFmk4wnR8xlegdrndcuAa2Iku7_RptSh9UO-loJdK-8f3JyyQkc--n36/pub?gid=591057554&single=true&output=csv";
+const OFFERS_HISTORY_CSV_URL = "https://docs.google.com/spreadsheets/d/1FIx0IEwImr1sSmUgJ_fLyZhQTnCCIxAforaV27MItE4/export?format=csv&gid=591057554";
 
 /* Número de WhatsApp de Álvaro Franco (remates de herramientas) */
 const WHATSAPP_HERRAMIENTAS = "59899496888";
@@ -1266,6 +1266,18 @@ function normalizeImageUrl(raw){
   return url;
 }
 
+function toolMedia(t){
+  const video = String(t.video || '').trim();
+  if(video){
+    const yt = video.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]+)/);
+    if(yt){
+      return `<div class="lot-media"><iframe src="https://www.youtube.com/embed/${yt[1]}" allowfullscreen loading="lazy"></iframe></div>`;
+    }
+    return `<div class="lot-media"><video src="${video}" controls playsinline preload="metadata"></video></div>`;
+  }
+  return photoMedia(t.fotos, t.lote);
+}
+
 function photoMedia(fotosRaw, lote){
   const urls = String(fotosRaw || '').split(',').map(s => normalizeImageUrl(s)).filter(Boolean);
   if(!urls.length){
@@ -1324,7 +1336,7 @@ function render(){
     return `
     <article class="lot${t.destacado ? ' lot-featured' : ''}">
       <div style="position:relative">
-        ${photoMedia(t.fotos, t.lote)}
+        ${toolMedia(t)}
         <div class="media-tag tag-lote">${ICONS.tag} LOTE ${t.lote || '-'}</div>
         <div class="media-tag tag-status ${vendido ? 'vendido' : 'disponible'}">${vendido ? 'Vendido' : 'Disponible'}</div>
         ${t.destacado ? `<div class="media-tag tag-featured">★ Destacado</div>` : ''}
@@ -1619,6 +1631,7 @@ function loadFromSheet(){
           nombre: row.nombre || row.Nombre || row.herramienta || row.Herramienta || '',
           descripcion: row.descripcion || row.Descripcion || row['Descripción'] || '',
           fotos: row.fotos || row.Fotos || row.foto || row.Foto || '',
+          video: row.video || row.Video || '',
           oferta: row.oferta || row.Oferta || row.oferta_actual || row['Oferta actual'] || '',
           ofertante: row.ofertante || row.Ofertante || '',
           base: row.base || row.Base || '',
@@ -1655,7 +1668,7 @@ try{
 loadOffersHistory();
 
 /* ---------- Cuenta regresiva al remate virtual de herramientas ---------- */
-const SHEET_REMATES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaQ49A_M3H3V-FSRdZ4Kb9lFmk4wnR8xlegdrndcuAa2Iku7_RptSh9UO-loJdK-8f3JyyQkc--n36/pub?gid=111075238&single=true&output=csv";
+const SHEET_REMATES_CSV_URL = "https://docs.google.com/spreadsheets/d/1FIx0IEwImr1sSmUgJ_fLyZhQTnCCIxAforaV27MItE4/export?format=csv&gid=111075238";
 
 function esRemateHerramientas(titulo, detalle){
   const texto = `${titulo || ''} ${detalle || ''}`.toLowerCase();
