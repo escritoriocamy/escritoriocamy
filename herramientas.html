@@ -1342,6 +1342,9 @@ function render(){
             <div class="spec-cell"><div class="spec-label">${vendido ? 'Vendido en' : 'Preoferta actual'}</div><div class="spec-value">${t.oferta ? money(t.oferta) : 'Sin preofertas'}</div></div>
             ${t.base ? `<div class="spec-cell"><div class="spec-label">Base</div><div class="spec-value">${money(t.base)}</div></div>` : ''}
           </div>
+          ${t.oferta && t.ofertante ? `<div class="spec-row">
+            <div class="spec-cell"><div class="spec-label">Preofertante</div><div class="spec-value">${t.ofertante}</div></div>
+          </div>` : ''}
         </div>
         ${t.descripcion ? `<p class="lot-note">${t.descripcion}</p>` : ''}
         ${vendido
