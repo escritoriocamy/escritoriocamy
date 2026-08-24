@@ -1281,7 +1281,11 @@ function getCategoryIcon(categoria){
 function normalizeCategoriaFiltro(l){
   const c = (l.categoria || '').toLowerCase();
   if(c.includes('vaquillona')){
-    return l.raza ? ('Vaq. ' + l.raza) : 'Vaquillonas';
+    const raza = (l.raza || '').toLowerCase();
+    if(raza.includes('holando') || raza.includes('kiwi') || raza.includes('jersey')){
+      return 'Vaq. Holando';
+    }
+    return 'Vaquillonas';
   }
   return l.categoria;
 }
