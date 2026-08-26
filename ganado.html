@@ -1274,16 +1274,24 @@ function getCategoryIcon(categoria){
 
 /* Agrupa las vaquillonas por raza (ej: "Vaq. Holando", "Vaq. Angus"),
    así no quedan todas mezcladas en un solo filtro genérico */
-function normalizeCategoriaFiltro(l){
+function getCategoriasDeLote(l){
   const c = (l.categoria || '').toLowerCase();
+
+  /* Lote mixto de terneros y terneras: aparece en las dos categorías por separado,
+     nunca se crea un chip combinado "Terneros y Terneras" */
+  if(c.includes('ternero') && c.includes('ternera')){
+    return ['Terneros', 'Terneras'];
+  }
+
   if(c.includes('vaquillona')){
     const raza = (l.raza || '').toLowerCase();
     if(raza.includes('holando') || raza.includes('kiwi') || raza.includes('jersey')){
-      return 'Vaquillonas Holando';
+      return ['Vaquillonas Holando'];
     }
-    return 'Vaquillonas';
+    return ['Vaquillonas'];
   }
-  return l.categoria;
+
+  return l.categoria ? [l.categoria] : [];
 }
 
 function embedMedia(url){
@@ -1321,7 +1329,7 @@ function render(){
       ? allLots.filter(l => l.destacado === true)
       : activeCategory === "Ovinos"
         ? allLots.filter(l => isSheepCategory(l.categoria))
-        : allLots.filter(l => normalizeCategoriaFiltro(l) === activeCategory);
+        : allLots.filter(l => getCategoriasDeLote(l).includes(activeCategory));
 
   if(searchTerm){
     const q = searchTerm.toLowerCase();
@@ -1427,7 +1435,7 @@ document.getElementById('lotSearch').addEventListener('input', (e) => {
 function buildFilters(){
   const hasFeatured = allLots.some(l => l.destacado === true);
   const hasSheep = allLots.some(l => isSheepCategory(l.categoria));
-  const cats = ["Todos", ...(hasFeatured ? ["Destacados"] : []), ...(hasSheep ? ["Ovinos"] : []), ...new Set(allLots.map(l => normalizeCategoriaFiltro(l)).filter(Boolean))];
+  const cats = ["Todos", ...(hasFeatured ? ["Destacados"] : []), ...(hasSheep ? ["Ovinos"] : []), ...new Set(allLots.flatMap(l => getCategoriasDeLote(l)))];
   filtersEl.innerHTML = cats.map(c =>
     `<button class="chip ${c==='Destacados' ? 'chip-featured' : ''} ${c===activeCategory?'active':''}" data-cat="${c}">${c === 'Destacados' ? '★' : c === 'Ovinos' ? ICONS.sheep : getCategoryIcon(c)}${c}</button>`
   ).join('');
