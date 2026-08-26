@@ -1004,7 +1004,7 @@
 
   <section id="lotes">
     <div class="lot-search-wrap">
-      <input type="search" id="lotSearch" class="lot-search" placeholder="Buscar por lote, categoría o raza...">
+      <input type="search" id="lotSearch" class="lot-search" placeholder="Buscar por lote, categoría, raza o cantidad...">
     </div>
     <nav class="filters" id="filters"></nav>
     <main class="grid" id="grid">
@@ -1328,7 +1328,8 @@ function render(){
     items = items.filter(l =>
       String(l.lote || '').toLowerCase().includes(q) ||
       String(l.categoria || '').toLowerCase().includes(q) ||
-      String(l.raza || '').toLowerCase().includes(q)
+      String(l.raza || '').toLowerCase().includes(q) ||
+      String(l.cabezas || '').toLowerCase().includes(q)
     );
   }
 
