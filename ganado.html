@@ -1279,7 +1279,7 @@ function normalizeCategoriaFiltro(l){
   if(c.includes('vaquillona')){
     const raza = (l.raza || '').toLowerCase();
     if(raza.includes('holando') || raza.includes('kiwi') || raza.includes('jersey')){
-      return 'Vaq. Holando';
+      return 'Vaquillonas Holando';
     }
     return 'Vaquillonas';
   }
@@ -1362,7 +1362,7 @@ function render(){
         ${l.destacado ? `<div class="media-tag tag-featured">★ Destacado</div>` : ''}
       </div>
       <div class="lot-body">
-        <h3 class="lot-cat">${normalizeCategoriaFiltro(l) || 'Sin categoría'}</h3>
+        <h3 class="lot-cat">${l.categoria || 'Sin categoría'}</h3>
         <div class="lot-underline"></div>
         <div class="lot-specs">
           <div class="spec-row">
