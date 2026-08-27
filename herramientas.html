@@ -1480,8 +1480,9 @@ function openBidModal(lote){
   bidSubtitle.textContent = t.nombre || '';
   const actual = Number(t.oferta) || 0;
   const base = Number(t.base) || 0;
-  bidCurrent.textContent = actual > 0 ? ('Preoferta actual: ' + money(t.oferta)) : 'Todavía no hay preofertas.';
-  bidMonto.min = Math.max(base, actual > 0 ? actual + 1 : 1);
+  bidCurrent.innerHTML = (actual > 0 ? ('Preoferta actual: ' + money(t.oferta)) : 'Todavía no hay preofertas.')
+    + (base > 0 ? ('<br><span style="color:var(--ink-soft); font-size:11.5px;">Base: ' + money(base) + '. Si ofertás menos, un integrante del equipo te contacta para confirmar.</span>') : '');
+  bidMonto.min = actual > 0 ? (actual + 1) : 1;
   renderBidHistory(lote);
   const waMsg = buildToolWaMessage(t);
   bidWaFallback.innerHTML = `¿Preferís avisarle directo? <a href="https://wa.me/${WHATSAPP_HERRAMIENTAS}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener">Escribile a Álvaro por WhatsApp</a>`;
@@ -1547,11 +1548,6 @@ bidForm.addEventListener('submit', async (e) => {
     bidError.classList.add('show');
     return;
   }
-  if(base > 0 && monto < base){
-    bidError.textContent = 'Tu preoferta no puede ser menor a la base (' + money(base) + ').';
-    bidError.classList.add('show');
-    return;
-  }
   if(monto <= actual){
     bidError.textContent = 'Tu preoferta tiene que ser mayor a la preoferta actual (' + money(actual) + ').';
     bidError.classList.add('show');
@@ -1590,7 +1586,10 @@ bidForm.addEventListener('submit', async (e) => {
     render();
 
     bidFormWrap.style.display = 'none';
-    bidSuccessDetail.textContent = 'Preofertaste ' + money(monto) + ' por el Lote ' + (t.lote || '') + '. Álvaro te va a contactar por WhatsApp si tu preoferta gana.';
+    const debajoDeBase = base > 0 && monto < base;
+    bidSuccessDetail.textContent = debajoDeBase
+      ? ('Preofertaste ' + money(monto) + ' por el Lote ' + (t.lote || '') + '. Como quedó por debajo de la base (' + money(base) + '), un integrante del equipo de Escritorio Camy se va a comunicar con vos para definir si se acepta o no.')
+      : ('Preofertaste ' + money(monto) + ' por el Lote ' + (t.lote || '') + '. Álvaro te va a contactar por WhatsApp si tu preoferta gana.');
     bidSuccess.style.display = '';
   }catch(err){
     bidError.textContent = 'No se pudo conectar. Revisá tu conexión e intentá de nuevo.';
@@ -1762,6 +1761,20 @@ function loadCountdown(){
 }
 
 loadCountdown();
+
+
+/* Si el navegador bloqueó el autoplay (por ejemplo, modo bajo consumo en iPhone),
+   arrancamos los videos apenas la persona toca cualquier parte de la pantalla */
+(function(){
+  function intentarReproducir(){
+    document.querySelectorAll("video[autoplay]").forEach(v => {
+      if(v.paused){ v.play().catch(() => {}); }
+    });
+  }
+  ["touchstart", "click", "scroll"].forEach(evt => {
+    document.addEventListener(evt, intentarReproducir, { once: true, passive: true });
+  });
+})();
 
 </script>
 
