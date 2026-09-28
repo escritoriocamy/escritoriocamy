@@ -525,6 +525,7 @@ let modoActual = "nuevo";
 let loteEncontrado = false;
 let fotosArchivos = [];   // [{nombre, mimeType, base64}]
 let videoArchivo = null;  // {nombre, mimeType, base64}
+let fotosProcesando = 0;  // fotos que todavía se están achicando
 
 const $ = (id) => document.getElementById(id);
 
@@ -590,8 +591,10 @@ $("modo").addEventListener("click", (ev) => {
 function reiniciarCampos(){
   loteEncontrado = false;
   fotosArchivos = [];
+  fotosProcesando = 0;
   videoArchivo = null;
   renderFotosThumbs();
+  $("progressNote").textContent = "";
   renderVideoThumb();
   $("fotosEditHint").style.display = "none";
   $("videoEditHint").style.display = "none";
@@ -694,9 +697,12 @@ function cargarProximoLote(){
 function comprimirImagen(file, maxAncho){
   return new Promise((resolve) => {
     const img = new Image();
-    const reader = new FileReader();
-    reader.onload = (e) => { img.src = e.target.result; };
+    const url = URL.createObjectURL(file);
+    const fin = (r) => { URL.revokeObjectURL(url); resolve(r); };
+    const timer = setTimeout(() => fin(null), 20000);   // si en 20 s no carga, la saltamos
+    img.onerror = () => { clearTimeout(timer); fin(null); };
     img.onload = () => {
+      clearTimeout(timer);
       let w = img.width, h = img.height;
       if (w > maxAncho){
         h = Math.round(h * (maxAncho / w));
@@ -706,9 +712,10 @@ function comprimirImagen(file, maxAncho){
       canvas.width = w; canvas.height = h;
       canvas.getContext("2d").drawImage(img, 0, 0, w, h);
       const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
-      resolve({ dataUrl, nombre: (file.name || "foto.jpg").replace(/\.[^.]+$/, ".jpg") });
+      if (!dataUrl || dataUrl.length < 100) { fin(null); return; }
+      fin({ dataUrl, nombre: (file.name || "foto.jpg").replace(/\.[^.]+$/, ".jpg") });
     };
-    reader.readAsDataURL(file);
+    img.src = url;
   });
 }
 
@@ -717,16 +724,46 @@ function dataUrlABase64(dataUrl){
 }
 
 /* ---------- Fotos ---------- */
-$("fotosBox").addEventListener("click", () => $("fotosInput").click());
+$("fotosBox").addEventListener("click", (ev) => {
+  if (ev.target.closest(".rm") || ev.target === $("fotosInput")) return;
+  $("fotosInput").click();
+});
 $("fotosInput").addEventListener("change", async (ev) => {
   const files = Array.from(ev.target.files || []);
-  for (const file of files){
-    const { dataUrl, nombre } = await comprimirImagen(file, 1600);
-    fotosArchivos.push({ nombre, mimeType: "image/jpeg", base64: dataUrlABase64(dataUrl), preview: dataUrl });
-  }
   ev.target.value = "";
-  renderFotosThumbs();
+  if (!files.length) return;
+
+  fotosProcesando += files.length;
+  actualizarEstadoFotos();
+  let fallidas = 0;
+  for (const file of files){
+    const r = await comprimirImagen(file, 1600);
+    if (r){
+      fotosArchivos.push({ nombre: r.nombre, mimeType: "image/jpeg", base64: dataUrlABase64(r.dataUrl), preview: r.dataUrl });
+    } else {
+      fallidas++;
+    }
+    fotosProcesando--;
+    renderFotosThumbs();
+    actualizarEstadoFotos();
+  }
+  if (fallidas){
+    mostrarError(fallidas === 1
+      ? "Una de las fotos no se pudo leer. Probá sacarle una captura de pantalla y subir esa, o elegir otra."
+      : fallidas + " fotos no se pudieron leer. Probá con otras o sacales captura de pantalla.");
+  }
 });
+
+function actualizarEstadoFotos(){
+  const btn = $("submitBtn");
+  if (fotosProcesando > 0){
+    btn.disabled = true;
+    $("progressNote").textContent = "Preparando fotos… (" + fotosProcesando + " restante" + (fotosProcesando > 1 ? "s" : "") + ")";
+  } else if (!btn.classList.contains("loading")){
+    btn.disabled = false;
+    $("progressNote").textContent = fotosArchivos.length ? (fotosArchivos.length + " foto" + (fotosArchivos.length > 1 ? "s" : "") + " lista" + (fotosArchivos.length > 1 ? "s" : "") + " para subir") : "";
+  }
+}
 
 function renderFotosThumbs(){
   const cont = $("fotosThumbs");
@@ -742,8 +779,10 @@ function renderFotosThumbs(){
 $("fotosThumbs").addEventListener("click", (ev) => {
   const btn = ev.target.closest(".rm");
   if (!btn) return;
+  ev.stopPropagation();
   fotosArchivos.splice(Number(btn.dataset.i), 1);
   renderFotosThumbs();
+  actualizarEstadoFotos();
 });
 
 /* ---------- Video ---------- */
@@ -804,6 +843,10 @@ $("loteForm").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   ocultarError();
 
+  if (fotosProcesando > 0){
+    mostrarError("Esperá un segundo, todavía se están preparando las fotos.");
+    return;
+  }
   const lote = $("fLote").value.trim();
   if (!lote){
     mostrarError("Falta el número de lote.");
@@ -861,8 +904,15 @@ $("loteForm").addEventListener("submit", async (ev) => {
     }
 
     let detalle = modoActual === "editar" ? "Los cambios ya están en la web." : "Ya está disponible en la web.";
+    const fotosEnviadas = payload.fotos.length;
+    if (fotosEnviadas){
+      const subidas = Number(data.fotosSubidas || 0);
+      detalle += subidas >= fotosEnviadas
+        ? (subidas > 1 ? " Se subieron " + subidas + " fotos." : " Se subió 1 foto.")
+        : " ⚠️ Solo se subieron " + subidas + " de " + fotosEnviadas + " fotos.";
+    }
     if (payload.video && !data.videoSubido){
-      detalle = "Se guardó, pero el video no se pudo subir automáticamente todavía. Avisale a quien armó la web para revisar la conexión con GitHub.";
+      detalle += " El video no se pudo subir automáticamente todavía. Avisale a quien armó la web para revisar la conexión con GitHub.";
     }
     $("successTitle").textContent = modoActual === "editar" ? "¡Cambios guardados!" : "¡Lote publicado!";
     $("successDetail").textContent = detalle;
