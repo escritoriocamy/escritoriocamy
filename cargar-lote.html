@@ -526,6 +526,8 @@ let loteEncontrado = false;
 let fotosArchivos = [];   // [{nombre, mimeType, base64}]
 let videoArchivo = null;  // {nombre, mimeType, base64}
 let fotosProcesando = 0;  // fotos que todavía se están achicando
+let portadaPromesa = null;
+let portadaExistente = null; // portada sacada del video que ya tenía el lote (modo editar)   // imagen sacada del video (para WhatsApp y la web)
 
 const $ = (id) => document.getElementById(id);
 
@@ -592,6 +594,8 @@ function reiniciarCampos(){
   loteEncontrado = false;
   fotosArchivos = [];
   fotosProcesando = 0;
+  portadaPromesa = null;
+  portadaExistente = null;
   videoArchivo = null;
   renderFotosThumbs();
   $("progressNote").textContent = "";
@@ -657,6 +661,16 @@ $("btnBuscarLote").addEventListener("click", async () => {
     if (d.video){
       $("videoEditHint").textContent = "Ya tiene un video guardado. Si elegís uno nuevo, lo reemplaza.";
       $("videoEditHint").style.display = "";
+      if (/\.(mp4|mov|m4v|webm)(\?|$)/i.test(String(d.video)) && !/youtu/i.test(String(d.video))){
+        const loteBuscado = lote;
+        portadaPromesa = capturarPortada(String(d.video), true).then(img => {
+          if (img && $("fLote").value.trim() === loteBuscado){
+            portadaExistente = img;
+            $("videoEditHint").textContent = "Ya tiene un video guardado. ✓ Al guardar se crea su imagen de portada (para WhatsApp y la web).";
+          }
+          return img;
+        });
+      }
     } else {
       $("videoEditHint").style.display = "none";
     }
@@ -785,6 +799,39 @@ $("fotosThumbs").addEventListener("click", (ev) => {
   actualizarEstadoFotos();
 });
 
+/* ---------- Portada del video: saca un cuadro (≈1 segundo) como imagen ---------- */
+function capturarPortada(src, desdeWeb){
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    let listo = false;
+    const fin = (r) => { if (listo) return; listo = true; clearTimeout(corte); try { v.pause(); v.removeAttribute("src"); v.load(); } catch(e){} resolve(r); };
+    const corte = setTimeout(() => fin(null), 15000);
+    if (desdeWeb) v.crossOrigin = "anonymous";
+    v.muted = true; v.playsInline = true; v.preload = "auto";
+    v.setAttribute("muted", ""); v.setAttribute("playsinline", "");
+    v.onerror = () => fin(null);
+    v.onloadeddata = () => {
+      const t = Math.min(1, (v.duration || 2) / 3);
+      const p = v.play(); if (p && p.catch) p.catch(() => {});
+      setTimeout(() => { try { v.pause(); v.currentTime = t; } catch(e){ fin(null); } }, 120);
+    };
+    v.onseeked = () => {
+      try {
+        const max = 1000;
+        let w = v.videoWidth, h = v.videoHeight;
+        if (!w || !h) return fin(null);
+        if (w > max){ h = Math.round(h * max / w); w = max; }
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        c.getContext("2d").drawImage(v, 0, 0, w, h);
+        const url = c.toDataURL("image/jpeg", 0.8);
+        fin(url && url.length > 1000 ? url : null);
+      } catch(e){ fin(null); }
+    };
+    v.src = src;
+  });
+}
+
 /* ---------- Video ---------- */
 $("videoBox").addEventListener("click", (ev) => {
   if (ev.target.closest(".rm")) return;
@@ -810,6 +857,11 @@ $("videoInput").addEventListener("change", (ev) => {
       preview: URL.createObjectURL(file)
     };
     renderVideoThumb();
+    const este = videoArchivo;
+    portadaPromesa = capturarPortada(este.preview, false).then(img => {
+      if (videoArchivo === este && img){ este.portada = img; renderVideoThumb(); }
+      return img;
+    });
   };
   reader.readAsDataURL(file);
 });
@@ -818,7 +870,9 @@ function renderVideoThumb(){
   const cont = $("videoThumbs");
   $("videoBox").classList.toggle("has-files", !!videoArchivo);
   if (!videoArchivo){ cont.innerHTML = ""; return; }
-  cont.innerHTML = `<div class="thumb"><video src="${videoArchivo.preview}" muted></video><button type="button" class="rm" id="rmVideo">✕</button></div>`;
+  cont.innerHTML = videoArchivo.portada
+    ? `<div class="thumb"><img src="${videoArchivo.portada}" alt=""><button type="button" class="rm" id="rmVideo">✕</button></div>`
+    : `<div class="thumb"><video src="${videoArchivo.preview}" muted playsinline></video><button type="button" class="rm" id="rmVideo">✕</button></div>`;
 }
 $("videoThumbs").addEventListener("click", (ev) => {
   if (ev.target.id === "rmVideo"){
@@ -906,6 +960,12 @@ $("loteForm").addEventListener("submit", async (ev) => {
   if (videoArchivo){
     payload.video = { nombre: videoArchivo.nombre, mimeType: videoArchivo.mimeType, base64: videoArchivo.base64 };
   }
+  if (portadaPromesa && !(videoArchivo && videoArchivo.portada) && !portadaExistente){
+    $("progressNote").textContent = "Preparando la imagen del video…";
+    await Promise.race([portadaPromesa, new Promise(r => setTimeout(r, 8000))]);
+  }
+  const portada = (videoArchivo && videoArchivo.portada) || (!videoArchivo && portadaExistente) || null;
+  if (portada) payload.portada = { base64: dataUrlABase64(portada) };
 
   const btn = $("submitBtn");
   btn.disabled = true;
