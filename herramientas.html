@@ -74,6 +74,22 @@
     }
     var cfg = {};
     for (var k in config) if (k !== 'download') cfg[k] = config[k];
+    // Ignorar filas vacías (las tablas de Sheets traen muchas filas sin datos)
+    if (cfg.skipEmptyLines) cfg.skipEmptyLines = 'greedy';
+    if (typeof config.complete === 'function'){
+      cfg.complete = function(results){
+        if (results && Array.isArray(results.data)){
+          results.data = results.data.filter(function(fila){
+            if (!fila || typeof fila !== 'object') return true;
+            var claves = Object.keys(fila);
+            var loteKey = claves.filter(function(c){ return /^\s*lote\s*$/i.test(c); })[0];
+            if (loteKey !== undefined) return String(fila[loteKey] || '').trim() !== '';   // sin número de lote = fila vacía
+            return claves.some(function(c){ var v = String(fila[c] || '').trim(); return v !== '' && v.toUpperCase() !== 'FALSE'; });
+          });
+        }
+        return config.complete(results);
+      };
+    }
     var clave = 'camy_csv_' + entrada;
     var cache = leerCache(clave);
     var mostrado = null;
