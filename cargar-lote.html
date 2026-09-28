@@ -370,6 +370,81 @@
     margin-bottom:6px;
   }
 
+  /* ---------- Panel: todos los lotes ---------- */
+  .wrap{ transition:max-width .2s ease-out; }
+  body.modo-lista .wrap{ max-width:960px; }
+  .panel-tools{ display:flex; gap:8px; margin-bottom:10px; }
+  .panel-tools input{
+    flex:1; min-width:0;
+    padding:11px 13px;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    font-family:'Inter', sans-serif;
+    font-size:15px;
+    color:var(--ink);
+    background:#fbfcfa;
+  }
+  .panel-tools input:focus{ outline:none; border-color:var(--gold-600); }
+  .panel-resumen{ font-size:12.5px; color:var(--ink-soft); margin:0 2px 12px; }
+  .lista-vacia{ text-align:center; color:var(--ink-soft); font-size:14px; padding:30px 10px; }
+  .lote-item{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    background:var(--card);
+    border-radius:14px;
+    padding:14px 16px;
+    margin-bottom:10px;
+    box-shadow:0 2px 10px rgba(28,46,31,.07);
+  }
+  .li-thumb{
+    flex-shrink:0;
+    width:72px; height:72px;
+    border-radius:10px;
+    background:#e2e9df;
+    overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+    font-size:26px;
+  }
+  .li-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .li-body{ flex:1; min-width:0; }
+  .li-top{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:2px; }
+  .li-num{ font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:13px; color:var(--gold-700); }
+  .li-badge{
+    font-size:10.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    padding:2px 7px; border-radius:99px; background:#e2efe0; color:var(--gold-700);
+  }
+  .li-badge.gris{ background:#ecebe6; color:var(--ink-soft); }
+  .li-title{ font-weight:700; font-size:15.5px; color:var(--olive-900); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .li-meta{ font-size:13px; color:var(--ink-soft); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .li-oferta{ font-size:13px; color:var(--ink); margin-top:3px; }
+  .li-oferta b{ color:var(--gold-700); }
+  .li-actions{ flex-shrink:0; display:flex; gap:8px; }
+  .li-btn{
+    padding:9px 14px;
+    border-radius:9px;
+    border:1.5px solid var(--line);
+    background:#fff;
+    color:var(--olive-900);
+    font-family:'Inter', sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    cursor:pointer;
+    transition:background .15s ease-out, transform .12s ease-out;
+  }
+  .li-btn:hover{ background:#f3f6f1; }
+  .li-btn:active{ transform:scale(.96); }
+  .li-btn.danger{ color:var(--danger); border-color:#e3b3b3; }
+  .li-btn.danger:hover{ background:#fbeaea; }
+  .li-btn:disabled{ opacity:.6; cursor:default; transform:none; }
+  @media (max-width:600px){
+    .lote-item{ flex-wrap:wrap; align-items:flex-start; }
+    .li-thumb{ width:60px; height:60px; }
+    .li-actions{ width:100%; }
+    .li-actions .li-btn{ flex:1; }
+    .li-title, .li-meta{ white-space:normal; }
+  }
+
   @media (prefers-reduced-motion: reduce){
     *{ animation:none !important; transition:none !important; }
   }
@@ -407,6 +482,7 @@
     <div class="tabs" id="modo">
       <button type="button" class="tab active" data-modo="nuevo">➕ Cargar nuevo</button>
       <button type="button" class="tab" data-modo="editar">✏️ Editar existente</button>
+      <button type="button" class="tab" data-modo="lista">📋 Todos los lotes</button>
     </div>
 
     <div class="error-box" id="errorBox"></div>
@@ -501,6 +577,15 @@
 
     </form>
 
+    <div id="panelLotes" style="display:none">
+      <div class="panel-tools">
+        <input type="search" id="buscarLista" placeholder="Buscar por número, categoría, raza, nombre…">
+        <button type="button" class="btn-buscar" id="btnRecargarLista">↻ Actualizar</button>
+      </div>
+      <div class="panel-resumen" id="panelResumen"></div>
+      <div id="listaLotes"></div>
+    </div>
+
     <div class="success-screen" id="successScreen">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
       <h2 id="successTitle">¡Lote publicado!</h2>
@@ -591,12 +676,15 @@ $("tabs").addEventListener("click", (ev) => {
 $("modo").addEventListener("click", (ev) => {
   const btn = ev.target.closest(".tab");
   if (!btn) return;
-  $("modo").querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-  btn.classList.add("active");
-  modoActual = btn.dataset.modo;
+  cambiarModo(btn.dataset.modo);
+});
+
+function cambiarModo(modo){
+  $("modo").querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.modo === modo));
+  modoActual = modo;
   reiniciarCampos();
   ocultarError();
-});
+}
 
 function reiniciarCampos(){
   loteEncontrado = false;
@@ -613,6 +701,16 @@ function reiniciarCampos(){
   $("videoEditHint").style.display = "none";
   $("loteForm").reset();
 
+  const enLista = modoActual === "lista";
+  document.body.classList.toggle("modo-lista", enLista);
+  $("panelLotes").style.display = enLista ? "" : "none";
+  $("loteForm").style.display = enLista ? "none" : "";
+  $("successScreen").classList.remove("show");
+  if (enLista){
+    cargarListaLotes();
+    return;
+  }
+
   if (modoActual === "editar"){
     $("btnBuscarLote").style.display = "";
     $("fLote").value = "";
@@ -622,6 +720,146 @@ function reiniciarCampos(){
     $("btnBuscarLote").style.display = "none";
     $("submitBtn").querySelector(".btn-text").textContent = "Publicar lote";
     cargarProximoLote();
+  }
+}
+
+/* ---------- Panel: todos los lotes en fila ---------- */
+let lotesLista = [];
+let pedidoLista = 0;
+
+function escHtml(s){
+  return String(s === undefined || s === null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function sinTildes(s){
+  return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+function mensajeScriptViejo(msg){
+  // El script de Google todavía no tiene las acciones nuevas
+  if (/no reconocida|Faltan datos en la oferta/.test(msg || "")) return "Falta publicar la nueva versión del script de Google (Implementar → Administrar implementaciones → Nueva versión).";
+  return msg;
+}
+
+async function cargarListaLotes(){
+  const pedido = ++pedidoLista;
+  const tipo = tipoActual;
+  $("panelResumen").textContent = "";
+  $("listaLotes").innerHTML = '<div class="lista-vacia">Cargando lotes…</div>';
+  try {
+    const r = await fetch(SCRIPT_URL + "?accion=listarLotes&hoja=" + encodeURIComponent(tipo) + "&clave=" + encodeURIComponent(claveGuardada));
+    const d = await r.json();
+    if (pedido !== pedidoLista) return;
+    if (!d.success) throw new Error(mensajeScriptViejo(d.message) || "No se pudo cargar la lista.");
+    lotesLista = (d.lotes || []).sort((a, b) => (parseInt(a.lote, 10) || 0) - (parseInt(b.lote, 10) || 0));
+    renderLista();
+  } catch (err) {
+    if (pedido !== pedidoLista) return;
+    $("listaLotes").innerHTML = '<div class="lista-vacia">' + escHtml(err.message && !/fetch|JSON/i.test(err.message) ? err.message : "No se pudo conectar para traer los lotes. Tocá Actualizar.") + '</div>';
+  }
+}
+
+function idDriveFoto(url){
+  const m = String(url || "").match(/\/file\/d\/([\w-]+)/) || String(url || "").match(/[?&]id=([\w-]+)/);
+  return m ? m[1] : "";
+}
+
+function textoBusquedaLote(l){
+  return sinTildes([l.lote, l.categoria, l.raza, l.ubicacion, l.comentario, l.nombre, l.descripcion, l.ofertante, l.estado].join(" "));
+}
+
+function renderLista(){
+  const q = sinTildes($("buscarLista").value.trim());
+  const lotes = q ? lotesLista.filter(l => textoBusquedaLote(l).includes(q)) : lotesLista;
+  $("panelResumen").textContent = lotesLista.length
+    ? (q ? lotes.length + " de " + lotesLista.length + " lotes" : lotesLista.length + " lote" + (lotesLista.length > 1 ? "s" : "") + " de " + tipoActual.toLowerCase())
+    : "";
+  if (!lotes.length){
+    $("listaLotes").innerHTML = '<div class="lista-vacia">' + (lotesLista.length ? "Ningún lote coincide con la búsqueda." : "Todavía no hay lotes cargados en " + escHtml(tipoActual) + ".") + '</div>';
+    return;
+  }
+
+  $("listaLotes").innerHTML = lotes.map(l => {
+    const lote = String(l.lote).trim();
+    const fotos = String(l.fotos || "").split(",").map(x => x.trim()).filter(Boolean);
+    const idFoto = fotos.length ? idDriveFoto(fotos[0]) : "";
+    const imgSrc = idFoto ? "https://drive.google.com/thumbnail?id=" + idFoto + "&sz=w200" : (/^https?:\/\//.test(fotos[0] || "") ? fotos[0] : "");
+    const thumb = imgSrc
+      ? '<img src="' + escHtml(imgSrc) + '" alt="" loading="lazy" onerror="this.remove()">'
+      : (tipoActual === "Ganado" ? "🐄" : "🔧");
+
+    let titulo, meta = [];
+    if (tipoActual === "Ganado"){
+      titulo = l.categoria || "(sin categoría)";
+      if (l.cabezas) meta.push(l.cabezas + " cabezas");
+      if (l.raza) meta.push(l.raza);
+      if (l.peso) meta.push(l.peso + " kg");
+      if (l.ubicacion) meta.push(l.ubicacion);
+    } else {
+      titulo = l.nombre || "(sin nombre)";
+      if (l.descripcion) meta.push(l.descripcion);
+    }
+    if (l.base) meta.push("Base US$ " + l.base);
+
+    const badges = [];
+    if (esVerdadero(l.destacado)) badges.push('<span class="li-badge">Destacado</span>');
+    if (l.estado) badges.push('<span class="li-badge gris">' + escHtml(l.estado) + '</span>');
+    if (fotos.length) badges.push('<span class="li-badge gris">📷 ' + fotos.length + '</span>');
+    if (l.video) badges.push('<span class="li-badge gris">🎥 Video</span>');
+
+    const oferta = Number(l.oferta) > 0
+      ? '<div class="li-oferta">Oferta: <b>US$ ' + escHtml(l.oferta) + '</b>' + (l.ofertante ? " — " + escHtml(l.ofertante) : "") + '</div>'
+      : "";
+
+    return '<div class="lote-item">' +
+      '<div class="li-thumb">' + thumb + '</div>' +
+      '<div class="li-body">' +
+        '<div class="li-top"><span class="li-num">Lote ' + escHtml(lote) + '</span>' + badges.join("") + '</div>' +
+        '<div class="li-title">' + escHtml(titulo) + '</div>' +
+        (meta.length ? '<div class="li-meta">' + escHtml(meta.join(" · ")) + '</div>' : "") +
+        oferta +
+      '</div>' +
+      '<div class="li-actions">' +
+        '<button type="button" class="li-btn" data-editar="' + escHtml(lote) + '">✏️ Editar</button>' +
+        '<button type="button" class="li-btn danger" data-borrar="' + escHtml(lote) + '">🗑 Borrar</button>' +
+      '</div>' +
+    '</div>';
+  }).join("");
+}
+
+$("buscarLista").addEventListener("input", renderLista);
+$("btnRecargarLista").addEventListener("click", cargarListaLotes);
+
+$("listaLotes").addEventListener("click", (ev) => {
+  const bEditar = ev.target.closest("[data-editar]");
+  if (bEditar){
+    cambiarModo("editar");
+    $("fLote").value = bEditar.dataset.editar;
+    $("btnBuscarLote").click();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+  const bBorrar = ev.target.closest("[data-borrar]");
+  if (bBorrar) borrarLote(bBorrar.dataset.borrar, bBorrar);
+});
+
+async function borrarLote(lote, btn){
+  if (!confirm("¿Borrar el lote " + lote + " de " + tipoActual + "?\n\nSe saca de la web. Queda una copia en la pestaña \"Lotes borrados\" de la planilla por si hay que recuperarlo.")) return;
+  ocultarError();
+  btn.disabled = true;
+  btn.textContent = "Borrando…";
+  try {
+    const r = await fetch(SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ accion: "borrarLote", clave: claveGuardada, hoja: tipoActual, lote })
+    });
+    const d = await r.json();
+    if (!d.success) throw new Error(mensajeScriptViejo(d.message) || "No se pudo borrar el lote.");
+    lotesLista = lotesLista.filter(l => String(l.lote).trim() !== lote);
+    renderLista();
+  } catch (err) {
+    mostrarError(err.message && !/fetch|JSON/i.test(err.message) ? err.message : "No se pudo conectar para borrar el lote. Tocá Actualizar y fijate si se borró.");
+    btn.disabled = false;
+    btn.textContent = "🗑 Borrar";
   }
 }
 
