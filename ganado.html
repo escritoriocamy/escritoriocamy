@@ -2023,16 +2023,37 @@ window.CHAT_CATEGORIAS = function(){
   return [...(hasFeatured ? ["Destacados"] : []), ...(hasSheep ? ["Ovinos"] : []), ...new Set(allLots.flatMap(l => getCategoriasDeLote(l)))];
 };
 
-function chatItemsDeCategoria(categoria){
-  return categoria === "Destacados" ? allLots.filter(l => l.destacado === true)
+function chatItemsDeCategoria(categoria, raza){
+  const items = categoria === "Destacados" ? allLots.filter(l => l.destacado === true)
     : categoria === "Ovinos" ? allLots.filter(l => isSheepCategory(l.categoria))
     : allLots.filter(l => getCategoriasDeLote(l).includes(categoria));
+  return raza ? items.filter(l => (l.raza || '').trim() === raza) : items;
 }
 
 window.CHAT_LOTES_DE = function(categoria){
   return chatItemsDeCategoria(categoria).map(l => ({
     lote: l.lote,
-    label: 'Lote ' + l.lote + (l.cabezas ? ' — ' + l.cabezas + ' cab.' : '')
+    label: 'Lote ' + l.lote + (l.cabezas ? ' — ' + l.cabezas + ' cabezas' : '')
+  }));
+};
+
+window.CHAT_RAZAS_DE = function(categoria){
+  const items = chatItemsDeCategoria(categoria);
+  return [...new Set(items.map(l => (l.raza || '').trim()).filter(Boolean))].sort();
+};
+
+window.CHAT_CANTIDADES_DE = function(categoria, raza){
+  const items = chatItemsDeCategoria(categoria, raza);
+  return [...new Set(items.map(l => String(l.cabezas || '').trim()).filter(Boolean))]
+    .sort((a, b) => Number(a) - Number(b));
+};
+
+window.CHAT_LOTES_FILTRADOS = function(categoria, raza, cantidad){
+  let items = chatItemsDeCategoria(categoria, raza);
+  if (cantidad) items = items.filter(l => String(l.cabezas || '').trim() === String(cantidad));
+  return items.map(l => ({
+    lote: l.lote,
+    label: 'Lote ' + l.lote + (l.cabezas ? ' — ' + l.cabezas + ' cabezas' : '')
   }));
 };
 
@@ -2126,13 +2147,55 @@ window.CHAT_IR_A_LOTE = function(categoria, lote){
   }
 
   function mostrarLotesDeCategoria(categoria){
-    const lotes = window.CHAT_LOTES_DE ? window.CHAT_LOTES_DE(categoria) : [];
+    const razas = window.CHAT_RAZAS_DE ? window.CHAT_RAZAS_DE(categoria) : [];
+    if (razas.length > 1){
+      mostrarRazas(categoria, razas);
+    } else {
+      mostrarCantidades(categoria, razas[0] || null);
+    }
+  }
+
+  function mostrarRazas(categoria, razas){
+    agregarBot('¿Qué raza te interesa?');
+    const opciones = razas.map(r => ({ label: r, value: r }));
+    opciones.push({ label: '🔙 Ver otras categorías', value: '__volver__' });
+    agregarOpciones(opciones, (valor) => {
+      if (valor === '__volver__'){ mostrarInicio(); return; }
+      mostrarCantidades(categoria, valor);
+    });
+  }
+
+  function mostrarCantidades(categoria, raza){
+    const cantidades = window.CHAT_CANTIDADES_DE ? window.CHAT_CANTIDADES_DE(categoria, raza) : [];
+    if (cantidades.length > 1){
+      agregarBot('¿Cuántas cabezas buscás?');
+      const opciones = cantidades.map(c => ({ label: c + ' cabezas', value: c }));
+      opciones.push({ label: '🔙 Ver otras categorías', value: '__volver__' });
+      agregarOpciones(opciones, (valor) => {
+        if (valor === '__volver__'){ mostrarInicio(); return; }
+        mostrarLotesFinal(categoria, raza, valor);
+      });
+    } else {
+      mostrarLotesFinal(categoria, raza, cantidades[0] || null);
+    }
+  }
+
+  function mostrarLotesFinal(categoria, raza, cantidad){
+    const lotes = window.CHAT_LOTES_FILTRADOS ? window.CHAT_LOTES_FILTRADOS(categoria, raza, cantidad)
+      : (window.CHAT_LOTES_DE ? window.CHAT_LOTES_DE(categoria) : []);
     if (!lotes.length){
-      agregarBot('No encontré lotes en "' + categoria + '" por ahora.');
+      agregarBot('No encontré lotes con esas características por ahora.');
       agregarOpciones([{ label: '🔙 Ver otras categorías', value: '__volver__' }], () => mostrarInicio());
       return;
     }
-    agregarBot('Mirá, tengo estos lotes de ' + categoria + ':');
+    if (lotes.length === 1){
+      const unico = lotes[0];
+      agregarBot('¡Dale! Te llevo al video del lote ' + unico.lote + '.');
+      if (window.CHAT_IR_A_LOTE) window.CHAT_IR_A_LOTE(categoria, unico.lote);
+      cerrar();
+      return;
+    }
+    agregarBot('Mirá, tengo estos lotes:');
     const opciones = lotes.map(l => ({ label: l.label, value: l.lote }));
     opciones.push({ label: '🔙 Ver otras categorías', value: '__volver__' });
     agregarOpciones(opciones, (valor) => {
