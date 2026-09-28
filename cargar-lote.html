@@ -295,6 +295,57 @@
   .btn-primary{ background:var(--gold-600); color:#fff; }
   .btn-secondary{ background:#e2e9df; color:var(--olive-900); }
 
+  /* ---------- Pantalla de PIN ---------- */
+  .lock-screen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+  .lock-card{
+    background:var(--card);
+    border-radius:16px;
+    padding:32px 26px;
+    max-width:340px;
+    width:100%;
+    text-align:center;
+    box-shadow:0 2px 10px rgba(28,46,31,.08);
+    animation:pop .25s ease-out;
+  }
+  .lock-card svg{
+    width:34px; height:34px;
+    color:var(--gold-600);
+    margin-bottom:10px;
+  }
+  .lock-card h2{
+    font-family:'Source Serif 4', serif;
+    font-size:19px;
+    margin:0 0 18px;
+    color:var(--olive-900);
+  }
+  .lock-card input{
+    width:100%;
+    text-align:center;
+    letter-spacing:8px;
+    font-size:22px;
+    padding:12px;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    font-family:'IBM Plex Mono', monospace;
+    color:var(--ink);
+    background:#fbfcfa;
+    margin-bottom:14px;
+    transition:border-color .15s ease-out;
+  }
+  .lock-card input:focus{ outline:none; border-color:var(--gold-600); }
+  .lock-error{
+    color:var(--danger);
+    font-size:13px;
+    min-height:18px;
+    margin-bottom:6px;
+  }
+
   @media (prefers-reduced-motion: reduce){
     *{ animation:none !important; transition:none !important; }
   }
@@ -302,6 +353,20 @@
 </style>
 </head>
 <body>
+
+  <div class="lock-screen" id="lockScreen">
+    <div class="lock-card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      <h2>Ingresá el PIN</h2>
+      <form id="lockForm">
+        <input type="password" inputmode="numeric" pattern="[0-9]*" id="lockInput" maxlength="8" autofocus>
+        <div class="lock-error" id="lockError"></div>
+        <button type="submit" class="submit-btn"><span class="btn-text">Entrar</span></button>
+      </form>
+    </div>
+  </div>
+
+  <div id="appContent" style="display:none">
 
   <div class="topbar">
     <h1>Cargar lote nuevo</h1>
@@ -413,6 +478,8 @@
 
   </div>
 
+  </div>
+
 <script>
 /* Mismo Web App que ya usás para las preofertas — no hace falta un link nuevo */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3Cv00MXY4p0WtxKfho7sRl82UXplx92PV3AXBZQQPVnkcosUnD4e4am4kM7sbR067lw/exec";
@@ -427,6 +494,41 @@ let fotosArchivos = [];   // [{nombre, mimeType, base64}]
 let videoArchivo = null;  // {nombre, mimeType, base64}
 
 const $ = (id) => document.getElementById(id);
+
+/* ---------- PIN de acceso ---------- */
+const CLAVE_ESPERADA = "1908";
+const CLAVE_STORAGE_KEY = "camy_clave_cargar_lote";
+let claveGuardada = "";
+
+try {
+  claveGuardada = localStorage.getItem(CLAVE_STORAGE_KEY) || "";
+} catch (err) {
+  claveGuardada = "";
+}
+
+if (claveGuardada === CLAVE_ESPERADA) {
+  mostrarApp();
+}
+
+$("lockForm").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const intento = $("lockInput").value.trim();
+  if (intento === CLAVE_ESPERADA){
+    claveGuardada = intento;
+    try { localStorage.setItem(CLAVE_STORAGE_KEY, intento); } catch (err) {}
+    mostrarApp();
+  } else {
+    $("lockError").textContent = "PIN incorrecto, probá de nuevo.";
+    $("lockInput").value = "";
+    $("lockInput").focus();
+  }
+});
+
+function mostrarApp(){
+  $("lockScreen").style.display = "none";
+  $("appContent").style.display = "";
+  cargarProximoLote();
+}
 
 /* ---------- Tabs ---------- */
 $("tabs").addEventListener("click", (ev) => {
@@ -458,7 +560,6 @@ function cargarProximoLote(){
       $("loteHint").textContent = "No se pudo sugerir un número, escribilo a mano.";
     });
 }
-cargarProximoLote();
 
 /* ---------- Compresión de fotos (canvas) ---------- */
 function comprimirImagen(file, maxAncho){
@@ -597,6 +698,7 @@ $("loteForm").addEventListener("submit", async (ev) => {
 
   const payload = {
     accion: "nuevoLote",
+    clave: claveGuardada,
     hoja: tipoActual,
     datos,
     fotos: fotosArchivos.map(f => ({ nombre: f.nombre, mimeType: f.mimeType, base64: f.base64 })),
