@@ -1528,7 +1528,6 @@
     border-radius:var(--r-lg);
     padding:8px;
     box-shadow:var(--shadow-sm);
-    animation:subir .5s cubic-bezier(.2,.8,.2,1) both;
   }
   @keyframes subir{ from{ opacity:0; transform:translateY(14px); } to{ opacity:1; transform:none; } }
   @media (hover:hover) and (pointer:fine){
@@ -1734,6 +1733,13 @@
   .chat-opt{ border:1px solid var(--line); color:var(--olive-900); }
   .chat-opt:hover{ background:var(--olive-900); border-color:var(--olive-900); color:#fff; }
   .suscribir-trigger{ background:#fff; color:var(--olive-900); border:1px solid var(--line); box-shadow:0 10px 26px rgba(18,38,26,.18); font-weight:600; }
+
+  /* ---------- Movimiento con el scroll (ver script camy-motion) ---------- */
+  html.lenis, html.lenis body{ height:auto; }
+  html.lenis{ scroll-behavior:auto; }
+  .lenis.lenis-stopped{ overflow:hidden; }
+  .mov{ will-change:translate, scale, opacity; transform-origin:center center; }
+  body{ overflow-x:hidden; }
 
   @media (prefers-reduced-motion: reduce){
     .lot{ animation:none; }
@@ -2371,6 +2377,163 @@ document.getElementById('remateLightbox').addEventListener('click', (e) => {
 
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js" id="lenis-lib"></script>
+<script id="camy-motion">
+/* =========================================================
+   MOVIMIENTO CON EL SCROLL — Escritorio Camy
+   - Los elementos crecen al llegar al centro de la pantalla
+   - Se achican y se desvanecen un poco al irse para arriba
+   - Algunos entran desde la izquierda o la derecha
+   - En computadora, desplazamiento suave con inercia (Lenis)
+   Para sacarlo, borrar este bloque <script>.
+   ========================================================= */
+(function(){
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  /* ---------- Scroll suave con inercia (solo mouse / trackpad) ---------- */
+  var lenis = null;
+  if (window.Lenis && window.matchMedia('(pointer: fine)').matches){
+    lenis = new Lenis({ lerp: 0.09, wheelMultiplier: 1, anchors: { offset: -80 } });
+    // Paneles con scroll propio: que sigan funcionando normal
+    function protegerPaneles(){
+      document.querySelectorAll('.chat-body, .chat-panel, .bid-card, .bid-history, .gallery-card, .gallery-overlay, .remate-lightbox')
+        .forEach(function(el){ el.setAttribute('data-lenis-prevent', ''); });
+    }
+    protegerPaneles();
+    new MutationObserver(protegerPaneles).observe(document.body, { childList: true, subtree: true });
+  }
+
+  /* ---------- Qué elementos se mueven y cómo ---------- */
+  // lado: 'auto' = según de qué lado de la pantalla esté; 'izq' / 'der' = fijo; 0 = solo sube
+  var GRUPOS = [
+    { sel: '.lot',                        lado: 'auto', escala: true },
+    { sel: '.landing-choice',             lado: 'auto', escala: true },
+    { sel: '.nosotros-card',              lado: 'auto', escala: true },
+    { sel: '.compromiso-item',            lado: 'auto', escala: true },
+    { sel: '.compromiso',                 lado: 0,      escala: true },
+    { sel: '.section > h2',               lado: 'izq',  escala: true },
+    { sel: '.section > p',                lado: 'der',  escala: false },
+    { sel: '.section > .contact-btn',     lado: 0,      escala: true },
+    { sel: '.contact-info',               lado: 'izq',  escala: true },
+    { sel: '.map-embed',                  lado: 'der',  escala: true },
+    { sel: '.values-inner .item',         lado: 'auto', escala: false },
+    { sel: '.landing-intro',              lado: 0,      escala: true },
+    { sel: '.lot-search-wrap',            lado: 'izq',  escala: false },
+    { sel: '.cross-note',                 lado: 'der',  escala: false },
+    { sel: '.countdown-box',              lado: 0,      escala: true }
+  ];
+
+  var items = [];
+  function recolectar(){
+    var vistos = new Set(items.map(function(it){ return it.el; }));
+    GRUPOS.forEach(function(g){
+      document.querySelectorAll(g.sel).forEach(function(el, i){
+        if (vistos.has(el)) return;
+        vistos.add(el);
+        el.classList.add('mov');
+        items.push({ el: el, g: g, i: i, x: 0, y: 40, s: 0.9, o: 0 });
+      });
+    });
+    items = items.filter(function(it){ return it.el.isConnected; });
+  }
+
+  /* ---------- Cálculo de la posición objetivo según el scroll ---------- */
+  var vw = window.innerWidth, vh = window.innerHeight, movil = vw < 700;
+  function objetivo(it){
+    var r = it.el.getBoundingClientRect();
+    if (r.bottom < -200 || r.top > vh + 200) return null;           // fuera de pantalla: no calcular
+    // entrando: 1 cuando el borde de arriba recién asoma abajo, 0 cuando ya subió a mitad de pantalla
+    var entrando = Math.max(0, Math.min(1, (r.top - vh * 0.5) / (vh * 0.45)));
+    // saliendo: 0 mientras se ve, 1 cuando el borde de abajo ya se fue por arriba
+    var saliendo = Math.max(0, Math.min(1, (vh * 0.3 - r.bottom) / (vh * 0.3)));
+    // cerca: 1 si el elemento cruza el centro de la pantalla
+    var mitad = vh / 2, dc = 0;
+    if (r.bottom < mitad) dc = mitad - r.bottom; else if (r.top > mitad) dc = r.top - mitad;
+    var cerca = 1 - Math.min(1, dc / mitad);
+
+    // Lado de entrada
+    var lado = 0, g = it.g;
+    if (g.lado === 'izq') lado = -1;
+    else if (g.lado === 'der') lado = 1;
+    else if (g.lado === 'auto'){
+      if (movil) lado = it.i % 2 ? 1 : -1;
+      else {
+        var dx = (r.left + r.width / 2) - vw / 2;
+        lado = Math.abs(dx) < vw * 0.12 ? 0 : (dx < 0 ? -1 : 1);
+      }
+    }
+    var dist = movil ? 40 : 90;
+    var suave = entrando * entrando;                                  // curva: arranca rápido y frena al llegar
+
+    var tope = movil ? 1 : 1.025;                                     // tamaño máximo en el centro
+    var s = g.escala ? (tope - 0.08 * (1 - cerca) - 0.08 * saliendo) : 1;
+    if (g.escala && r.height > vh * 0.8) s = 1 + (s - 1) * 0.4;       // bloques muy altos: menos zoom
+    return {
+      x: lado * dist * suave,
+      y: 60 * suave - 30 * saliendo,
+      s: s,
+      o: 1 - 0.9 * suave - 0.35 * saliendo
+    };
+  }
+
+  /* ---------- Bucle de animación con suavizado ---------- */
+  var corriendo = false, quietos = 0;
+  function frame(){
+    var t = [], cambio = false;
+    for (var k = 0; k < items.length; k++) t.push(objetivo(items[k]));   // primero medir todo
+    for (var j = 0; j < items.length; j++){                                // después escribir
+      var it = items[j], o = t[j];
+      if (!o) continue;
+      var f = 0.14;                                                       // suavidad (más bajo = más lento)
+      it.x += (o.x - it.x) * f; it.y += (o.y - it.y) * f;
+      it.s += (o.s - it.s) * f; it.o += (o.o - it.o) * f;
+      if (Math.abs(o.y - it.y) + Math.abs(o.x - it.x) > 0.1 || Math.abs(o.s - it.s) > 0.0005) cambio = true;
+      var st = it.el.style;
+      st.translate = it.x.toFixed(1) + 'px ' + it.y.toFixed(1) + 'px';
+      st.scale = it.s.toFixed(4);
+      st.opacity = Math.max(0, Math.min(1, it.o)).toFixed(3);
+    }
+    // Parallax del texto de portada
+    var heroText = document.querySelector('.hero-text');
+    if (heroText){ heroText.style.translate = '0 ' + (window.scrollY * 0.25).toFixed(1) + 'px'; }
+
+    if (cambio) quietos = 0; else quietos++;
+    if (quietos < 10) requestAnimationFrame(frame); else corriendo = false;
+  }
+  function despertar(){
+    quietos = 0;
+    if (!corriendo){ corriendo = true; requestAnimationFrame(frame); }
+  }
+
+  function iniciar(){
+    recolectar();
+    // Arranque: lo que ya está en pantalla aparece suave desde su lugar
+    items.forEach(function(it){ var o = objetivo(it); if (o){ it.x = o.x; it.y = o.y + 30; it.s = o.s * 0.96; it.o = 0; } });
+    despertar();
+  }
+
+  window.addEventListener('scroll', despertar, { passive: true });
+  window.addEventListener('resize', function(){ vw = window.innerWidth; vh = window.innerHeight; movil = vw < 700; despertar(); });
+  // Los lotes y remates se cargan después desde la planilla: sumarlos cuando aparezcan
+  var pendiente = null;
+  new MutationObserver(function(){
+    clearTimeout(pendiente);
+    pendiente = setTimeout(function(){
+      var antes = items.length; recolectar();
+      for (var i = antes; i < items.length; i++){ var o = objetivo(items[i]); if (o){ items[i].x = o.x; items[i].y = o.y + 40; items[i].o = 0; } }
+      despertar();
+    }, 60);
+  }).observe(document.body, { childList: true, subtree: true });
+
+  if (lenis){
+    function raf(time){ lenis.raf(time); requestAnimationFrame(raf); }
+    requestAnimationFrame(raf);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+  else iniciar();
+})();
+</script>
 </body>
 
 </html>
