@@ -1089,6 +1089,142 @@
     font-size:15px;
     color:#f7f4e9;
   }
+  /* ---------- Resaltado al llegar desde el asistente ---------- */
+  .lote-destacando{
+    box-shadow:0 0 0 4px var(--gold-600), 0 4px 16px rgba(28,46,31,.25);
+    transition:box-shadow .3s ease-out;
+  }
+
+  /* ---------- Asistente de chat ---------- */
+  .chat-fab{
+    position:fixed;
+    right:20px; bottom:20px;
+    width:58px; height:58px;
+    border-radius:50%;
+    background:var(--gold-600);
+    color:#fff;
+    border:none;
+    font-size:25px;
+    cursor:pointer;
+    box-shadow:0 4px 14px rgba(28,46,31,.35);
+    z-index:90;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .12s ease-out, background .15s ease-out;
+  }
+  .chat-fab:hover{ background:var(--gold-700); }
+  .chat-fab:active{ transform:scale(.94); }
+
+  .chat-panel{
+    position:fixed;
+    right:20px; bottom:88px;
+    width:340px;
+    max-width:calc(100vw - 32px);
+    height:460px;
+    max-height:calc(100vh - 140px);
+    background:var(--card);
+    border-radius:18px;
+    box-shadow:0 8px 30px rgba(28,46,31,.28);
+    z-index:90;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    transform-origin:bottom right;
+    transform:scale(.95);
+    opacity:0;
+    visibility:hidden;
+    transition:transform .18s cubic-bezier(0.23,1,0.32,1), opacity .18s ease-out, visibility 0s linear .18s;
+  }
+  .chat-panel.open{
+    transform:scale(1);
+    opacity:1;
+    visibility:visible;
+    transition:transform .18s cubic-bezier(0.23,1,0.32,1), opacity .18s ease-out, visibility 0s linear;
+  }
+  .chat-head{
+    background:var(--olive-900);
+    color:#fff;
+    padding:14px 16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-shrink:0;
+  }
+  .chat-head span{
+    font-family:'Inter', sans-serif;
+    font-weight:700;
+    font-size:14.5px;
+  }
+  .chat-head button{
+    background:none; border:none; color:#fff;
+    font-size:18px; cursor:pointer; padding:2px 6px;
+    opacity:.8;
+    transition:opacity .15s ease-out;
+  }
+  .chat-head button:hover{ opacity:1; }
+
+  .chat-body{
+    flex:1;
+    overflow-y:auto;
+    padding:14px 14px 6px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .chat-msg{
+    max-width:88%;
+    padding:10px 13px;
+    border-radius:13px;
+    font-family:'Inter', sans-serif;
+    font-size:13.5px;
+    line-height:1.4;
+    animation:chatIn .18s ease-out;
+  }
+  @keyframes chatIn{
+    from{ opacity:0; transform:translateY(4px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+  .chat-msg.bot{
+    align-self:flex-start;
+    background:#e2e9df;
+    color:var(--olive-900);
+    border-bottom-left-radius:4px;
+  }
+  .chat-msg.user{
+    align-self:flex-end;
+    background:var(--gold-600);
+    color:#fff;
+    border-bottom-right-radius:4px;
+  }
+  .chat-options{
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+    padding:2px 2px 8px;
+  }
+  .chat-opt{
+    border:1.5px solid var(--gold-600);
+    background:#fff;
+    color:var(--gold-700);
+    font-family:'Inter', sans-serif;
+    font-weight:600;
+    font-size:13px;
+    padding:8px 13px;
+    border-radius:999px;
+    cursor:pointer;
+    transition:background .15s ease-out, color .15s ease-out, transform .12s ease-out;
+  }
+  .chat-opt:hover{ background:var(--gold-600); color:#fff; }
+  .chat-opt:active{ transform:scale(.96); }
+
+  @media (max-width:480px){
+    .chat-panel{ right:12px; left:12px; width:auto; bottom:84px; }
+    .chat-fab{ right:16px; bottom:16px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .chat-msg{ animation:none; }
+  }
+
 </style>
 </head>
 <body>
@@ -1382,7 +1518,7 @@ function render(){
     const vendido = isTrue(t.estado);
     const waMsg = buildToolWaMessage(t);
     return `
-    <article class="lot${t.destacado ? ' lot-featured' : ''}">
+    <article class="lot${t.destacado ? ' lot-featured' : ''}" id="lote-card-${String(t.lote || '').replace(/"/g,'&quot;')}">
       <div style="position:relative">
         ${toolMedia(t)}
         <div class="media-tag tag-lote">${ICONS.tag} LOTE ${t.lote || '-'}</div>
@@ -1691,6 +1827,7 @@ function loadFromSheet(){
         }
         buildFilters();
         render();
+        chatAplicarLoteDesdeURL();
       },
       error:()=>{
         clearTimeout(safetyTimer);
@@ -1701,6 +1838,28 @@ function loadFromSheet(){
     clearTimeout(safetyTimer);
     grid.innerHTML = '<div class="status">No se pudo cargar la planilla. Probá recargar la página.</div>';
   }
+}
+
+/* Si venimos del asistente de chat de la página principal, con ?lote=X en el link,
+   buscamos ese lote y lo mostramos resaltado apenas carga la planilla. */
+function chatAplicarLoteDesdeURL(){
+  const parametros = new URLSearchParams(window.location.search);
+  const loteDesdeURL = parametros.get('lote');
+  if(!loteDesdeURL) return;
+
+  const encontrado = allTools.find(t => String(t.lote) === String(loteDesdeURL));
+  if(!encontrado) return;
+
+  if(window.history.replaceState){
+    const url = new URL(window.location.href);
+    url.searchParams.delete('lote');
+    window.history.replaceState({}, '', url);
+  }
+
+  const categoriaDestino = autoCategoria(encontrado.nombre);
+  setTimeout(() => {
+    if(window.CHAT_IR_A_LOTE) window.CHAT_IR_A_LOTE(categoriaDestino, loteDesdeURL);
+  }, 300);
 }
 
 try{
@@ -1828,6 +1987,133 @@ loadCountdown();
   });
 })();
 
+/* ---------- Asistente de chat: datos de Herramientas ---------- */
+window.CHAT_CATEGORIAS = function(){
+  const hasFeatured = allTools.some(t => t.destacado === true);
+  const categorias = [...new Set(allTools.map(t => autoCategoria(t.nombre)))].sort();
+  return [...(hasFeatured ? ["Destacados"] : []), ...categorias];
+};
+
+function chatItemsDeCategoria(categoria){
+  return categoria === "Destacados" ? allTools.filter(t => t.destacado === true)
+    : allTools.filter(t => autoCategoria(t.nombre) === categoria);
+}
+
+window.CHAT_LOTES_DE = function(categoria){
+  return chatItemsDeCategoria(categoria).map(t => ({
+    lote: t.lote,
+    label: 'Lote ' + t.lote + (t.nombre ? ' — ' + t.nombre : '')
+  }));
+};
+
+window.CHAT_IR_A_LOTE = function(categoria, lote){
+  activeFilter = categoria;
+  searchTerm = '';
+  const searchInput = document.getElementById('lotSearch');
+  if (searchInput) searchInput.value = '';
+
+  const sorted = [...chatItemsDeCategoria(categoria)].sort((a, b) => (b.destacado === true) - (a.destacado === true));
+  const idx = sorted.findIndex(t => String(t.lote) === String(lote));
+  if (idx !== -1) visibleCount = Math.max(visibleCount, idx + 1);
+
+  buildFilters();
+  render();
+
+  requestAnimationFrame(() => {
+    const el = document.getElementById('lote-card-' + CSS.escape(String(lote)));
+    if (el){
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('lote-destacando');
+      setTimeout(() => el.classList.remove('lote-destacando'), 1800);
+    }
+  });
+};
+
+/* ---------- Asistente de chat (motor genérico) ---------- */
+(function(){
+  const fab = document.getElementById('chatFab');
+  const panel = document.getElementById('chatPanel');
+  const closeBtn = document.getElementById('chatClose');
+  const body = document.getElementById('chatBody');
+  let iniciado = false;
+
+  function abrir(){
+    panel.classList.add('open');
+    if (!iniciado){
+      iniciado = true;
+      mostrarInicio();
+    }
+  }
+  function cerrar(){
+    panel.classList.remove('open');
+  }
+  fab.addEventListener('click', () => {
+    panel.classList.contains('open') ? cerrar() : abrir();
+  });
+  closeBtn.addEventListener('click', cerrar);
+
+  function agregarBot(texto){
+    const div = document.createElement('div');
+    div.className = 'chat-msg bot';
+    div.textContent = texto;
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+  }
+  function agregarUser(texto){
+    const div = document.createElement('div');
+    div.className = 'chat-msg user';
+    div.textContent = texto;
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+  }
+  function agregarOpciones(opciones, onPick){
+    const cont = document.createElement('div');
+    cont.className = 'chat-options';
+    opciones.forEach(op => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chat-opt';
+      b.textContent = op.label;
+      b.addEventListener('click', () => {
+        cont.remove();
+        agregarUser(op.label);
+        onPick(op.value);
+      });
+      cont.appendChild(b);
+    });
+    body.appendChild(cont);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function mostrarInicio(){
+    agregarBot('¡Hola! ¿Qué te gustaría ver hoy?');
+    const cats = window.CHAT_CATEGORIAS ? window.CHAT_CATEGORIAS() : [];
+    if (!cats.length){
+      agregarBot('Todavía no tengo lotes cargados para mostrarte. ¡Volvé más tarde!');
+      return;
+    }
+    agregarOpciones(cats.map(c => ({ label: c, value: c })), mostrarLotesDeCategoria);
+  }
+
+  function mostrarLotesDeCategoria(categoria){
+    const lotes = window.CHAT_LOTES_DE ? window.CHAT_LOTES_DE(categoria) : [];
+    if (!lotes.length){
+      agregarBot('No encontré lotes en "' + categoria + '" por ahora.');
+      agregarOpciones([{ label: '🔙 Ver otras categorías', value: '__volver__' }], () => mostrarInicio());
+      return;
+    }
+    agregarBot('Mirá, tengo estos lotes de ' + categoria + ':');
+    const opciones = lotes.map(l => ({ label: l.label, value: l.lote }));
+    opciones.push({ label: '🔙 Ver otras categorías', value: '__volver__' });
+    agregarOpciones(opciones, (valor) => {
+      if (valor === '__volver__'){ mostrarInicio(); return; }
+      agregarBot('¡Dale! Te llevo al video del lote ' + valor + '.');
+      if (window.CHAT_IR_A_LOTE) window.CHAT_IR_A_LOTE(categoria, valor);
+      cerrar();
+    });
+  }
+})();
+
 </script>
 
 <!-- =========================================================
@@ -1858,5 +2144,16 @@ INSTRUCCIONES — Remate de herramientas
    archivos van en la misma carpeta).
 ========================================================= -->
 
+  <!-- ===== Asistente de chat ===== -->
+  <button type="button" class="chat-fab" id="chatFab" aria-label="Abrir asistente">💬</button>
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-head">
+      <span>Asistente Escritorio Camy</span>
+      <button type="button" id="chatClose" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+  </div>
+
 </body>
+
 </html>
