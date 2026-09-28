@@ -488,7 +488,7 @@
           <span class="filebox-label">🎥 Tocá para elegir un video de la galería</span>
           <div class="thumbs" id="videoThumbs"></div>
         </div>
-        <span class="hint">Podés subir videos largos (1 minuto o más): se suben por partes y, si se corta la señal, siguen solos. <b>Tip:</b> en el iPhone, Ajustes → Cámara → Grabar video → <b>1080p a 30 cps</b>: los videos pesan 3 veces menos y suben mucho más rápido.</span>
+        <span class="hint">Podés subir videos de hasta 1 minuto y medio. Si pesa mucho, la página lo achica sola para la web mientras completás los datos (no cambies de pantalla mientras dice "Preparando").</span>
         <span class="hint" id="videoEditHint" style="display:none"></span>
       </div>
 
@@ -866,10 +866,17 @@ $("videoInput").addEventListener("change", (ev) => {
       preview: URL.createObjectURL(file)
     };
     renderVideoThumb();
-    if (file.size > 300 * 1024 * 1024){
-      $("progressNote").textContent = "Video de " + videoArchivo.tamanoMB + " MB: va a tardar varios minutos en subir. Mejor con Wi-Fi.";
-    }
     const este = videoArchivo;
+    if (file.size > VIDEO_LIVIANO){
+      // El video se achica mientras completás el resto de los datos. Arranca con el próximo toque
+      // en la pantalla (el celular necesita un toque para poder reproducirlo con sonido).
+      $("progressNote").textContent = "🎬 Video de " + este.tamanoMB + " MB: lo voy a preparar para la web mientras completás los datos.";
+      const arrancar = () => {
+        document.removeEventListener("pointerdown", arrancar, true);
+        if (videoArchivo === este && !este.compresion) este.compresion = comprimirVideo(este);
+      };
+      document.addEventListener("pointerdown", arrancar, true);
+    }
     portadaPromesa = capturarPortada(este.preview, false).then(img => {
       if (videoArchivo === este && img){ este.portada = img; renderVideoThumb(); }
       return img;
@@ -877,7 +884,105 @@ $("videoInput").addEventListener("change", (ev) => {
   }
 });
 
-/* ---------- Subida del video a Google Drive, en partes de 8 MB ---------- */
+/* ---------- Video para la web: se achica en el celular (≈ 850 px, 10-18 MB por minuto) ---------- */
+const VIDEO_LIVIANO = 22 * 1024 * 1024;   // hasta este tamaño se sube tal cual, sin achicar
+const VIDEO_MAXIMO = 34 * 1024 * 1024;    // lo máximo que acepta el envío al servidor
+
+function avisoPreparacion(v, fr){
+  const txt = "🎬 Preparando el video para la web… " + Math.round(fr * 100) + "% (no cambies de pantalla)";
+  if (v.alAvanzar) v.alAvanzar(fr, txt);
+  else $("progressNote").textContent = txt;
+}
+
+function comprimirVideo(v){
+  return new Promise((resolve, reject) => {
+    const tipos = ["video/mp4;codecs=avc1.42E01F,mp4a.40.2", "video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp8,opus", "video/webm"];
+    const tipo = window.MediaRecorder && HTMLCanvasElement.prototype.captureStream ? tipos.find(t => MediaRecorder.isTypeSupported(t)) : null;
+    if (!tipo) return reject(new Error("Este celular no puede preparar el video."));
+
+    const vid = document.createElement("video");
+    vid.src = v.preview; vid.playsInline = true; vid.setAttribute("playsinline", ""); vid.preload = "auto";
+    vid.style.cssText = "position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;pointer-events:none;z-index:-1";
+    document.body.appendChild(vid);
+
+    // Sonido: se captura sin que suene en el parlante
+    let actx = null, conSonido = false;
+    try {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+    } catch (e) { actx = null; }
+
+    let rec = null, corte = null, terminado = false;
+    const limpiar = () => { clearTimeout(corte); try { vid.pause(); } catch(e){} vid.remove(); try { actx && actx.close(); } catch(e){} };
+    const fallar = (msg) => { if (terminado) return; terminado = true; try { rec && rec.state !== "inactive" && rec.stop(); } catch(e){} limpiar(); reject(new Error(msg)); };
+
+    vid.onerror = () => fallar("No se pudo leer el video.");
+    vid.onloadedmetadata = async () => {
+      const dur = vid.duration || 60;
+      const escala = Math.min(1, 854 / Math.max(vid.videoWidth, vid.videoHeight));
+      const w = Math.round(vid.videoWidth * escala / 2) * 2, h = Math.round(vid.videoHeight * escala / 2) * 2;
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      const stream = canvas.captureStream(30);
+      if (actx){
+        try {
+          const src = actx.createMediaElementSource(vid);
+          const dest = actx.createMediaStreamDestination();
+          src.connect(dest);
+          dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+          conSonido = true;
+        } catch (e) {}
+      }
+      // Calidad según la duración: apunta a unos 16 MB en total
+      const bps = Math.max(600000, Math.min(1800000, Math.round(16 * 1024 * 1024 * 8 / dur) - 128000));
+      rec = new MediaRecorder(stream, { mimeType: tipo, videoBitsPerSecond: bps, audioBitsPerSecond: 96000 });
+      const partes = [];
+      rec.ondataavailable = e => { if (e.data && e.data.size) partes.push(e.data); };
+      rec.onstop = () => {
+        if (terminado) return;
+        terminado = true;
+        limpiar();
+        const esMp4 = /mp4/.test(tipo);
+        const blob = new Blob(partes, { type: esMp4 ? "video/mp4" : "video/webm" });
+        if (blob.size < 50000) return reject(new Error("No se pudo preparar el video."));
+        resolve({ blob, nombre: "video." + (esMp4 ? "mp4" : "webm"), mimeType: blob.type });
+      };
+
+      const dibujar = () => {
+        if (terminado) return;
+        try { ctx.drawImage(vid, 0, 0, w, h); } catch (e) {}
+        avisoPreparacion(v, Math.min(vid.currentTime / dur, 0.99));
+        if (vid.requestVideoFrameCallback) vid.requestVideoFrameCallback(dibujar); else requestAnimationFrame(dibujar);
+      };
+      vid.onended = () => { try { ctx.drawImage(vid, 0, 0, w, h); } catch (e) {} setTimeout(() => { try { rec.stop(); } catch (e) {} }, 300); };
+      corte = setTimeout(() => fallar("Se interrumpió la preparación del video (¿cambiaste de pantalla?). Tocá Publicar de nuevo."), dur * 3000 + 60000);
+
+      rec.start(1000);
+      try {
+        if (!conSonido) vid.muted = true;
+        await vid.play();
+      } catch (e) {
+        // Sin toque previo el celular no deja reproducir con sonido: sigue sin sonido
+        try { vid.muted = true; await vid.play(); } catch (e2) { return fallar("El celular no dejó preparar el video. Tocá Publicar de nuevo."); }
+      }
+      dibujar();
+    };
+  });
+}
+
+/* Deja el video listo para subir: si es liviano va tal cual; si no, se achica */
+async function prepararVideoParaWeb(v){
+  if (v.archivo.size <= VIDEO_LIVIANO) return { blob: v.archivo, nombre: v.nombre, mimeType: v.mimeType };
+  if (!v.compresion) v.compresion = comprimirVideo(v);
+  let listo;
+  try { listo = await v.compresion; }
+  catch (e) { v.compresion = null; throw e; }
+  if (listo.blob.size > VIDEO_MAXIMO) throw new Error("El video es muy largo para la web (" + Math.round(listo.blob.size / 1048576) + " MB aun achicado). Recortalo a 1 minuto y medio como máximo.");
+  return listo;
+}
+
+/* ---------- Subida del video a Google Drive, en partes de 8 MB (ya no se usa) ---------- */
 const esperar = ms => new Promise(r => setTimeout(r, ms));
 async function llamarScript(obj, ms){
   const ctrl = new AbortController();
@@ -1108,30 +1213,24 @@ $("loteForm").addEventListener("submit", async (ev) => {
   btn.disabled = true;
   btn.classList.add("loading");
 
-  // Video: se sube primero a Google Drive, por partes
-  if (videoArchivo && videoArchivo.archivo && !videoArchivo.driveId){
+  // Video: se prepara (achica) en el celular y se sube a la web, como antes
+  if (videoArchivo && videoArchivo.archivo && !videoArchivo.base64){
     let pantalla = null;
     try { if (navigator.wakeLock) pantalla = await navigator.wakeLock.request("screen"); } catch (e) {}
     const barra = $("progressBar");
     barra.classList.add("show");
-    const avanzar = (fr, aviso) => {
+    videoArchivo.alAvanzar = (fr, aviso) => {
       barra.querySelector("span").style.width = Math.round(fr * 100) + "%";
-      $("progressNote").textContent = aviso || ("Subiendo video… " + Math.round(fr * 100) + "% (" +
-        Math.round(fr * videoArchivo.tamanoMB) + " de " + videoArchivo.tamanoMB + " MB). No cierres esta pantalla.");
+      $("progressNote").textContent = aviso || "";
     };
-    avanzar(videoArchivo.pos ? videoArchivo.pos / videoArchivo.archivo.size : 0);
     try {
-      // Si es un lote nuevo, confirmar antes que el número esté libre (para no subir el video de gusto)
-      if (modoActual === "nuevo" && !videoArchivo.sesion && ultimoEnvioSinRespuesta !== tipoActual + "|" + lote){
-        try {
-          const ya = await (await fetch(SCRIPT_URL + "?accion=obtenerLote&hoja=" + encodeURIComponent(tipoActual) + "&lote=" + encodeURIComponent(lote))).json();
-          if (ya && ya.success) throw new Error("Ya existe un lote número " + lote + " en " + tipoActual + ". Elegí otro número.");
-        } catch (e) { if (/Ya existe/.test(e.message)) throw e; }
-      }
-      videoArchivo.driveId = await subirVideoPorPartes(videoArchivo, tipoActual, lote, avanzar);
-      avanzar(1, "✓ Video subido. Guardando el lote…");
+      const listo = await prepararVideoParaWeb(videoArchivo);
+      videoArchivo.alAvanzar(1, "✓ Video listo (" + Math.max(1, Math.round(listo.blob.size / 1048576)) + " MB). Subiendo…");
+      videoArchivo.base64 = await leerBase64(listo.blob);
+      videoArchivo.nombreFinal = listo.nombre;
+      videoArchivo.mimeFinal = listo.mimeType;
     } catch (err) {
-      mostrarError(err.message || "No se pudo subir el video.");
+      mostrarError(err.message || "No se pudo preparar el video.");
       btn.disabled = false;
       btn.classList.remove("loading");
       try { if (pantalla) pantalla.release(); } catch (e) {}
@@ -1139,7 +1238,10 @@ $("loteForm").addEventListener("submit", async (ev) => {
     }
     try { if (pantalla) pantalla.release(); } catch (e) {}
   }
-  if (videoArchivo && videoArchivo.driveId) payload.videoDriveId = videoArchivo.driveId;
+  if (videoArchivo && videoArchivo.base64){
+    payload.video = { nombre: videoArchivo.nombreFinal, mimeType: videoArchivo.mimeFinal, base64: videoArchivo.base64 };
+    $("progressNote").textContent = "Subiendo video y datos…";
+  }
   if (!(videoArchivo && videoArchivo.archivo)) $("progressNote").textContent = modoActual === "editar" ? "Guardando cambios…" : "Publicando lote…";
 
   try {
@@ -1180,7 +1282,7 @@ $("loteForm").addEventListener("submit", async (ev) => {
         ? (subidas > 1 ? " Se subieron " + subidas + " fotos." : " Se subió 1 foto.")
         : " ⚠️ Solo se subieron " + subidas + " de " + fotosEnviadas + " fotos.";
     }
-    if (payload.videoDriveId && !data.videoSubido){
+    if (payload.video && !data.videoSubido){
       detalle += " El video no se pudo subir automáticamente todavía. Avisale a quien armó la web para revisar la conexión con GitHub.";
     }
     mostrarExito(detalle);
