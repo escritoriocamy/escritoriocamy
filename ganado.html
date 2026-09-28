@@ -2071,7 +2071,7 @@ window.CHAT_IR_A_LOTE = function(categoria, lote){
   render();
 
   requestAnimationFrame(() => {
-    const el = document.getElementById('lote-card-' + CSS.escape(String(lote)));
+    const el = document.getElementById('lote-card-' + String(lote));
     if (el){
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       el.classList.add('lote-destacando');
