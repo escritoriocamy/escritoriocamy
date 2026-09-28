@@ -711,7 +711,7 @@ function comprimirImagen(file, maxAncho){
       const canvas = document.createElement("canvas");
       canvas.width = w; canvas.height = h;
       canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
       if (!dataUrl || dataUrl.length < 100) { fin(null); return; }
       fin({ dataUrl, nombre: (file.name || "foto.jpg").replace(/\.[^.]+$/, ".jpg") });
     };
@@ -737,7 +737,7 @@ $("fotosInput").addEventListener("change", async (ev) => {
   actualizarEstadoFotos();
   let fallidas = 0;
   for (const file of files){
-    const r = await comprimirImagen(file, 1600);
+    const r = await comprimirImagen(file, 1400);
     if (r){
       fotosArchivos.push({ nombre: r.nombre, mimeType: "image/jpeg", base64: dataUrlABase64(r.dataUrl), preview: r.dataUrl });
     } else {
@@ -838,6 +838,30 @@ function ocultarError(){
   $("errorBox").classList.remove("show");
 }
 
+/* ---------- ¿Quedó guardado aunque la respuesta no llegó? ---------- */
+async function loteQuedoGuardado(hoja, lote){
+  for (let intento = 0; intento < 3; intento++){
+    try {
+      const r = await fetch(SCRIPT_URL + "?accion=obtenerLote&hoja=" + encodeURIComponent(hoja) + "&lote=" + encodeURIComponent(lote));
+      const d = await r.json();
+      if (d && d.success) return true;
+      if (d && d.success === false && /No existe/.test(d.message || "")) return false;
+    } catch (e) {}
+    await new Promise(res => setTimeout(res, 2500));
+  }
+  return false;
+}
+let ultimoEnvioSinRespuesta = "";   // "Herramientas|112" si el último envío se cortó
+
+function mostrarExito(detalle){
+  $("successTitle").textContent = modoActual === "editar" ? "¡Cambios guardados!" : "¡Lote publicado!";
+  $("successDetail").textContent = detalle;
+  $("btnVerWeb").href = SITE_URLS[tipoActual];
+  $("loteForm").style.display = "none";
+  $("successScreen").classList.add("show");
+  ultimoEnvioSinRespuesta = "";
+}
+
 /* ---------- Envío ---------- */
 $("loteForm").addEventListener("submit", async (ev) => {
   ev.preventDefault();
@@ -889,11 +913,26 @@ $("loteForm").addEventListener("submit", async (ev) => {
   $("progressNote").textContent = videoArchivo ? "Subiendo video y datos, puede tardar un poco…" : (modoActual === "editar" ? "Guardando cambios…" : "Publicando lote…");
 
   try {
-    const resp = await fetch(SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
-    const data = await resp.json();
+    const ctrl = new AbortController();
+    const corte = setTimeout(() => ctrl.abort(), 120000);   // 2 minutos como máximo
+    let data;
+    try {
+      const resp = await fetch(SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify(payload),
+        signal: ctrl.signal
+      });
+      data = await resp.json();
+    } finally {
+      clearTimeout(corte);
+    }
+
+    // Si dice "ya existe" pero es el mismo lote que recién mandamos y se cortó, en realidad se guardó
+    const claveEnvio = tipoActual + "|" + lote;
+    if (!data.success && modoActual === "nuevo" && /Ya existe/.test(data.message || "") && ultimoEnvioSinRespuesta === claveEnvio){
+      mostrarExito("Ya había quedado guardado en el intento anterior. Ya está disponible en la web.");
+      return;
+    }
 
     if (!data.success){
       mostrarError(data.message || "No se pudo guardar el lote.");
@@ -914,14 +953,20 @@ $("loteForm").addEventListener("submit", async (ev) => {
     if (payload.video && !data.videoSubido){
       detalle += " El video no se pudo subir automáticamente todavía. Avisale a quien armó la web para revisar la conexión con GitHub.";
     }
-    $("successTitle").textContent = modoActual === "editar" ? "¡Cambios guardados!" : "¡Lote publicado!";
-    $("successDetail").textContent = detalle;
-    $("btnVerWeb").href = SITE_URLS[tipoActual];
-    $("loteForm").style.display = "none";
-    $("successScreen").classList.add("show");
+    mostrarExito(detalle);
 
   } catch (err) {
-    mostrarError("No se pudo conectar. Revisá tu conexión a internet e intentá de nuevo.");
+    // La respuesta no llegó (lento o se cortó). Nos fijamos si igual se guardó.
+    $("progressNote").textContent = "Tardó en responder… revisando si se guardó";
+    const guardado = modoActual === "nuevo" ? await loteQuedoGuardado(tipoActual, lote) : false;
+    if (guardado){
+      mostrarExito("Se guardó bien (tardó un poco en responder). Ya está disponible en la web.");
+    } else {
+      ultimoEnvioSinRespuesta = tipoActual + "|" + lote;
+      mostrarError(modoActual === "editar"
+        ? "Tardó mucho en responder. Esperá un minuto y fijate en la web si se guardaron los cambios antes de volver a intentar."
+        : "Tardó mucho en responder. Probá de nuevo: si ya había quedado guardado, te lo va a confirmar.");
+    }
   } finally {
     btn.disabled = false;
     btn.classList.remove("loading");
