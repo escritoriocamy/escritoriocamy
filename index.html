@@ -2038,6 +2038,24 @@
     .chat-fab, .chat-fab::before, .chat-fab::after{ animation:none; }
   }
 </style>
+<style id="camy-asistente-css">
+  /* ---------- Asistente: entrada de texto, "escribiendo…" y opción principal ---------- */
+  .chat-panel{ height:540px; max-height:calc(100vh - 130px); }
+  .chat-options{ gap:6px; }
+  .chat-opt{ text-align:left; line-height:1.25; }
+  a.chat-opt{ text-decoration:none; display:inline-flex; align-items:center; }
+  .chat-opt-main{ background:var(--olive-900); color:#fff; border-color:var(--olive-900); font-weight:700; }
+  .chat-opt-main:hover{ background:var(--olive-800); color:#fff; }
+  .chat-input{ display:flex; gap:8px; padding:10px 12px 12px; border-top:1px solid var(--line); background:#fff; flex-shrink:0; }
+  .chat-input input{ flex:1; min-width:0; border:1px solid var(--line); border-radius:999px; padding:11px 14px; font:15px 'Inter', sans-serif; background:var(--cream); color:var(--ink); }
+  .chat-input input:focus{ outline:none; border-color:var(--gold-600); box-shadow:0 0 0 3px rgba(63,138,85,.14); }
+  .chat-input button{ flex-shrink:0; width:42px; height:42px; border:none; border-radius:50%; background:var(--olive-900); color:#fff; font-size:16px; cursor:pointer; }
+  .chat-typing{ display:inline-flex; gap:4px; padding:12px 14px; }
+  .chat-typing span{ width:6px; height:6px; border-radius:50%; background:var(--gold-600); opacity:.4; animation:chatPunto 1s infinite; }
+  .chat-typing span:nth-child(2){ animation-delay:.15s; } .chat-typing span:nth-child(3){ animation-delay:.3s; }
+  @keyframes chatPunto{ 0%,100%{ opacity:.3; transform:translateY(0); } 50%{ opacity:1; transform:translateY(-3px); } }
+  @media (max-width:480px){ .chat-panel{ height:calc(100vh - 120px); } }
+</style>
 </head>
 <body>
 
@@ -2417,279 +2435,517 @@ document.getElementById('remateLightbox').addEventListener('click', (e) => {
   });
 })();
 
-/* ---------- Asistente de chat (página principal) ---------- */
+
+</script>
+
+<script id="camy-asistente">
+/* =========================================================
+   ASISTENTE DE ESCRITORIO CAMY (mismo en las 3 páginas)
+   - Ganado: categoría → raza → "Ver todos los lotes" (o uno en particular)
+   - Búsqueda por raza primero
+   - Se le puede escribir: "vaquillonas angus", "lote 12", "motosierra"…
+   - Próximo remate, consulta por WhatsApp y avisos de lotes nuevos
+   ========================================================= */
 (function(){
   const fab = document.getElementById('chatFab');
   const panel = document.getElementById('chatPanel');
   const closeBtn = document.getElementById('chatClose');
   const body = document.getElementById('chatBody');
-  let iniciado = false;
+  if (!fab || !panel || !body) return;
 
-  const SHEET_CSV_URL_GANADO = "https://docs.google.com/spreadsheets/d/1FIx0IEwImr1sSmUgJ_fLyZhQTnCCIxAforaV27MItE4/export?format=csv&gid=0";
-  const SHEET_CSV_URL_HERRAMIENTAS = "https://docs.google.com/spreadsheets/d/1FIx0IEwImr1sSmUgJ_fLyZhQTnCCIxAforaV27MItE4/export?format=csv&gid=928735234";
+  const PLANILLA = 'https://docs.google.com/spreadsheets/d/1FIx0IEwImr1sSmUgJ_fLyZhQTnCCIxAforaV27MItE4/export?format=csv&gid=';
+  const URLS = { Ganado: PLANILLA + '0', Herramientas: PLANILLA + '928735234', Remates: PLANILLA + '111075238' };
+  const WA = { Ganado: { num: '59899342965', nombre: 'Roger' }, Herramientas: { num: '59899496888', nombre: 'Álvaro' } };
 
-  const SHEEP_KEYWORDS = ['oveja', 'ovino', 'ovina', 'cordero', 'borrego', 'carnero', 'capon', 'capón', 'lanar'];
-  function isSheepCategory(categoria){
-    const c = (categoria || '').toLowerCase();
-    return SHEEP_KEYWORDS.some(kw => c.includes(kw));
-  }
-  function isTrue(val){
-    if(!val) return false;
-    const v = String(val).trim().toLowerCase();
-    return v === 'si' || v === 'sí' || v === 'true' || v === '1' || v === 'x' || v === 'yes';
-  }
-  function getCategoriasDeLote(l){
-    const c = (l.categoria || '').toLowerCase();
-    if(c.includes('ternero') && c.includes('ternera')){
-      return ['Terneros', 'Terneras'];
+  const pagina = /herramientas/.test(location.pathname) ? 'herramientas'
+               : /ganado/.test(location.pathname) ? 'ganado' : 'inicio';
+
+  /* ---------------- Utilidades de texto ---------------- */
+  const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+  const esVerdadero = v => ['si', 'true', '1', 'x', 'yes'].includes(norm(v));
+  const plural = (n, uno, varios) => n + ' ' + (n === 1 ? uno : varios);
+
+  /* ---------------- Categorías y razas de ganado ---------------- */
+  const OVINOS = ['oveja', 'ovino', 'ovina', 'cordero', 'borrego', 'carnero', 'capon', 'lanar'];
+  function categoriasDeLote(l){
+    const c = norm(l.categoria);
+    if (!c) return [];
+    if (OVINOS.some(k => c.includes(k))) return ['Ovinos'];
+    if (c.includes('ternero') && c.includes('ternera')) return ['Terneros', 'Terneras'];
+    if (c.includes('vaquillona')){
+      // mismo criterio que los filtros de la página
+      const r = norm(l.raza);
+      return [(r.includes('holando') || r.includes('kiwi') || r.includes('jersey')) ? 'Vaquillonas Holando' : 'Vaquillonas'];
     }
-    if(c.includes('vaquillona')){
-      const raza = (l.raza || '').toLowerCase();
-      if(raza.includes('holando') || raza.includes('kiwi') || raza.includes('jersey')){
-        return ['Vaquillonas Holando'];
-      }
-      return ['Vaquillonas'];
-    }
-    return l.categoria ? [l.categoria] : [];
+    return [String(l.categoria).trim().replace(/\s+/g, ' ')];
   }
-  function autoCategoria(nombre){
-    const n = (nombre || '').toLowerCase();
+  const RAZAS = [
+    ['Holando', ['holando', 'holstein']], ['Angus', ['angus']], ['Hereford', ['hereford']],
+    ['Kiwi', ['kiwi']], ['Jersey', ['jersey']], ['Braford', ['braford']], ['Brangus', ['brangus']],
+    ['Normando', ['normando']], ['Shorthorn', ['shorthorn']], ['Limousin', ['limousin']],
+    ['Charolais', ['charolais']], ['Wagyu', ['wagyu']], ['Cruzas', ['cruza']]
+  ];
+  function razasDeTexto(txt){
+    const t = norm(txt);
+    return RAZAS.filter(([, claves]) => claves.some(k => t.includes(k))).map(([nombre]) => nombre);
+  }
+  function razasDeLote(l){
+    const encontradas = razasDeTexto(l.raza);
+    if (!encontradas.length && String(l.raza || '').trim()) encontradas.push(String(l.raza).trim());
+    return encontradas;
+  }
+  const textoBusquedaRaza = raza => { const r = RAZAS.find(([n]) => n === raza); return r ? r[1][0] : raza; };
+
+  /* ---------------- Categorías de herramientas (igual que la página) ---------------- */
+  function categoriaHerramienta(nombre){
+    const n = ' ' + norm(nombre) + ' ';
     const reglas = [
-      { cat: 'Tractores y cosechadoras', kw: ['tractor', 'cosechadora'] },
-      { cat: 'Vehículos', kw: ['camion', 'camión', 'trailer', 'zorra', 'chata', 'volkswagen', 'ford', ' gol', 'jac', 'furgon', 'furgón', 'utilitario'] },
-      { cat: 'Implementos agrícolas', kw: ['arado', 'rastrillo', 'rotativa', 'pastera', 'sembradora', 'fertilizadora', 'cortadora', 'maicero', 'pala', 'guinche', 'trailla', 'excentrica', 'excéntrica'] },
-      { cat: 'Herramientas y taller', kw: ['motosierra', 'amoladora', 'taladro', 'soldadora', 'morsa', 'morza', 'terraja'] },
-      { cat: 'Cercos e infraestructura', kw: ['electrificador', 'portera', 'alambre', 'pincho', 'cisterna', 'tanque', 'comedero', 'gallina', 'bebedero'] },
+      ['Tractores y cosechadoras', ['tractor', 'cosechadora']],
+      ['Vehículos', ['camion', 'trailer', 'zorra', 'chata', 'volkswagen', 'ford', ' gol', 'jac', 'furgon', 'utilitario']],
+      ['Implementos agrícolas', ['arado', 'rastrillo', 'rotativa', 'pastera', 'sembradora', 'fertilizadora', 'cortadora', 'maicero', 'pala', 'guinche', 'trailla', 'excentrica']],
+      ['Herramientas y taller', ['motosierra', 'amoladora', 'taladro', 'soldadora', 'morsa', 'morza', 'terraja']],
+      ['Cercos e infraestructura', ['electrificador', 'portera', 'alambre', 'pincho', 'cisterna', 'tanque', 'comedero', 'gallina', 'bebedero']]
     ];
-    for(const r of reglas){
-      if(r.kw.some(k => n.includes(k))) return r.cat;
-    }
+    for (const [cat, claves] of reglas) if (claves.some(k => n.includes(k))) return cat;
     return 'Otros';
   }
 
-  let datosGanado = null;
-  let datosHerramientas = null;
+  /* ---------------- Datos (se cargan una vez) ---------------- */
+  const datos = {};
+  function cargar(tipo){
+    if (datos[tipo]) return Promise.resolve(datos[tipo]);
+    if (typeof Papa === 'undefined') return Promise.reject(new Error('sin Papa'));
+    return new Promise((resolve, reject) => {
+      let resuelto = false;
+      Papa.parse(URLS[tipo], {
+        download: true, header: true, skipEmptyLines: true,
+        complete: r => {
+          datos[tipo] = convertir(tipo, r.data || []);
+          if (!resuelto){ resuelto = true; resolve(datos[tipo]); }
+        },
+        error: e => { if (!resuelto){ resuelto = true; reject(e); } }
+      });
+    });
+  }
+  function convertir(tipo, filas){
+    const v = (row, ...claves) => { for (const k of claves) if (row[k] !== undefined && String(row[k]).trim() !== '') return String(row[k]).trim(); return ''; };
+    if (tipo === 'Ganado') return filas.map(r => ({
+      lote: v(r, 'lote', 'Lote'), categoria: v(r, 'categoria', 'Categoria', 'Categoría'), raza: v(r, 'raza', 'Raza'),
+      cabezas: v(r, 'cabezas', 'Cabezas', 'cantidad', 'Cantidad'), peso: v(r, 'peso', 'Peso'),
+      ubicacion: v(r, 'ubicacion', 'Ubicacion', 'Ubicación'), destacado: esVerdadero(v(r, 'destacado', 'Destacado', 'Lote destacado'))
+    })).filter(l => l.lote);
+    if (tipo === 'Herramientas') return filas.map(r => ({
+      lote: v(r, 'lote', 'Lote'), nombre: v(r, 'nombre', 'Nombre', 'herramienta', 'Herramienta'),
+      descripcion: v(r, 'descripcion', 'Descripcion', 'Descripción'), destacado: esVerdadero(v(r, 'destacado', 'Destacado'))
+    })).filter(t => t.lote);
+    return filas.map(r => ({ fecha: v(r, 'fecha', 'Fecha'), titulo: v(r, 'titulo', 'Titulo', 'Título'), detalle: v(r, 'detalle', 'Detalle'), hora: v(r, 'hora', 'Hora') }));
+  }
 
+  /* ---------------- Interfaz del chat ---------------- */
+  let iniciado = false;
   function abrir(){
     panel.classList.add('open');
-    if (!iniciado){
-      iniciado = true;
-      mostrarInicio();
-    }
+    if (!iniciado){ iniciado = true; armarEntrada(); inicio(); }
+    setTimeout(() => { const i = panel.querySelector('.chat-input input'); if (i && matchMedia('(pointer: fine)').matches) i.focus(); }, 250);
   }
-  function cerrar(){
-    panel.classList.remove('open');
-  }
-  fab.addEventListener('click', () => {
-    panel.classList.contains('open') ? cerrar() : abrir();
-  });
-  closeBtn.addEventListener('click', cerrar);
+  function cerrar(){ panel.classList.remove('open'); }
+  fab.addEventListener('click', () => panel.classList.contains('open') ? cerrar() : abrir());
+  if (closeBtn) closeBtn.addEventListener('click', cerrar);
 
-  function agregarBot(texto){
-    const div = document.createElement('div');
-    div.className = 'chat-msg bot';
-    div.textContent = texto;
-    body.appendChild(div);
-    body.scrollTop = body.scrollHeight;
-    return div;
+  function bajar(){ body.scrollTop = body.scrollHeight; }
+  function bot(texto){
+    const d = document.createElement('div');
+    d.className = 'chat-msg bot';
+    d.textContent = texto;
+    body.appendChild(d); bajar();
+    return d;
   }
-  function agregarUser(texto){
-    const div = document.createElement('div');
-    div.className = 'chat-msg user';
-    div.textContent = texto;
-    body.appendChild(div);
-    body.scrollTop = body.scrollHeight;
+  function escribiendo(){
+    const d = document.createElement('div');
+    d.className = 'chat-msg bot chat-typing';
+    d.innerHTML = '<span></span><span></span><span></span>';
+    body.appendChild(d); bajar();
+    return d;
   }
-  function agregarOpciones(opciones, onPick){
+  function usuario(texto){
+    const d = document.createElement('div');
+    d.className = 'chat-msg user';
+    d.textContent = texto;
+    body.appendChild(d); bajar();
+  }
+  function limpiarOpciones(){ body.querySelectorAll('.chat-options').forEach(o => o.remove()); }
+  /* opciones: [{label, accion, principal?, link?}] */
+  function opciones(lista){
+    limpiarOpciones();
     const cont = document.createElement('div');
     cont.className = 'chat-options';
-    opciones.forEach(op => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'chat-opt';
+    lista.forEach(op => {
+      const b = document.createElement(op.link ? 'a' : 'button');
+      b.className = 'chat-opt' + (op.principal ? ' chat-opt-main' : '');
       b.textContent = op.label;
+      if (op.link){ b.href = op.link; b.target = '_blank'; b.rel = 'noopener'; }
+      else b.type = 'button';
       b.addEventListener('click', () => {
+        if (op.link) return;
         cont.remove();
-        agregarUser(op.label);
-        onPick(op.value);
+        usuario(op.label);
+        const t = escribiendo();
+        setTimeout(() => { t.remove(); op.accion(); }, 350);
       });
       cont.appendChild(b);
     });
-    body.appendChild(cont);
-    body.scrollTop = body.scrollHeight;
+    body.appendChild(cont); bajar();
+  }
+  function armarEntrada(){
+    if (panel.querySelector('.chat-input')) return;
+    const f = document.createElement('form');
+    f.className = 'chat-input';
+    f.innerHTML = '<input type="text" placeholder="Escribí lo que buscás…" aria-label="Escribí lo que buscás" enterkeyhint="send">' +
+      '<button type="submit" aria-label="Enviar">➤</button>';
+    panel.appendChild(f);
+    f.addEventListener('submit', e => {
+      e.preventDefault();
+      const input = f.querySelector('input');
+      const texto = input.value.trim();
+      if (!texto) return;
+      input.value = '';
+      limpiarOpciones();
+      usuario(texto);
+      interpretar(texto);
+    });
+  }
+  function conDatos(tipos, fn){
+    const t = escribiendo();
+    Promise.all(tipos.map(cargar)).then(r => { t.remove(); fn(...r); })
+      .catch(() => { t.remove(); bot('No pude cargar la información justo ahora 😕. Probá de nuevo en un momento.'); menuPrincipal(); });
+  }
+  const volverMenu = { label: '🏠 Menú principal', accion: () => menuPrincipal() };
+
+  /* ---------------- Inicio ---------------- */
+  function inicio(){
+    bot('¡Hola! 👋 Soy el asistente de Escritorio Camy.');
+    bot(pagina === 'herramientas'
+      ? 'Te ayudo a encontrar herramientas. Elegí una opción o escribime lo que buscás (ej: "motosierra").'
+      : 'Te muestro los lotes por categoría y raza. Elegí una opción o escribime lo que buscás (ej: "vaquillonas angus").');
+    menuPrincipal(true);
+  }
+  function menuPrincipal(silencioso){
+    if (!silencioso) bot('¿En qué más te puedo ayudar?');
+    const ganado = [
+      { label: '🐄 Ganado por categoría', accion: menuGanado, principal: pagina !== 'herramientas' },
+      { label: '🧬 Ganado por raza', accion: menuRazas }
+    ];
+    const herr = [{ label: '🔧 Herramientas', accion: menuHerramientas, principal: pagina === 'herramientas' }];
+    opciones([
+      ...(pagina === 'herramientas' ? herr.concat(ganado) : ganado.concat(herr)),
+      { label: '📅 ¿Cuándo es el próximo remate?', accion: proximoRemate },
+      { label: '💬 Hablar con una persona', accion: hablar }
+    ]);
   }
 
-  function mostrarInicio(){
-    agregarBot('¡Hola! ¿Qué te gustaría ver hoy?');
-    agregarOpciones([
-      { label: '🐄 Ganado', value: 'Ganado' },
-      { label: '🔧 Herramientas', value: 'Herramientas' }
-    ], mostrarCategorias);
+  /* ---------------- Ganado ---------------- */
+  function contarPor(lotes, fn){
+    const m = new Map();
+    lotes.forEach(l => fn(l).forEach(k => m.set(k, (m.get(k) || 0) + 1)));
+    return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }
+  function filtrarGanado(lotes, cat, raza){
+    return lotes.filter(l =>
+      (!cat || (cat === 'Destacados' ? l.destacado : categoriasDeLote(l).includes(cat))) &&
+      (!raza || razasDeLote(l).includes(raza)));
   }
 
-  function mostrarCategorias(tipo){
-    const msgCargando = agregarBot('Buscando las categorías de ' + tipo + '…');
-    cargarDatos(tipo, (items) => {
-      msgCargando.remove();
+  function menuGanado(){
+    conDatos(['Ganado'], lotes => {
+      if (!lotes.length){ bot('Todavía no hay lotes de ganado cargados.'); menuPrincipal(); return; }
+      const cats = contarPor(lotes, categoriasDeLote);
+      const dest = lotes.filter(l => l.destacado).length;
+      bot('¿Qué categoría te interesa?');
+      opciones([
+        ...(dest ? [{ label: '⭐ Destacados (' + dest + ')', accion: () => elegirRaza('Destacados') }] : []),
+        ...cats.map(([c, n]) => ({ label: c + ' (' + n + ')', accion: () => elegirRaza(c) })),
+        volverMenu
+      ]);
+    });
+  }
 
-      let categorias;
-      if (tipo === 'Ganado'){
-        const hasFeatured = items.some(l => l.destacado === true);
-        const hasSheep = items.some(l => isSheepCategory(l.categoria));
-        categorias = [...(hasFeatured ? ["Destacados"] : []), ...(hasSheep ? ["Ovinos"] : []), ...new Set(items.flatMap(l => getCategoriasDeLote(l)))];
-      } else {
-        const hasFeatured = items.some(t => t.destacado === true);
-        const cats = [...new Set(items.map(t => autoCategoria(t.nombre)))].sort();
-        categorias = [...(hasFeatured ? ["Destacados"] : []), ...cats];
-      }
+  function elegirRaza(cat){
+    conDatos(['Ganado'], lotes => {
+      const deCat = filtrarGanado(lotes, cat, null);
+      const razas = contarPor(deCat, razasDeLote);
+      if (razas.length <= 1){ resultadoGanado(cat, razas.length ? razas[0][0] : null); return; }
+      bot('Tengo ' + plural(deCat.length, 'lote', 'lotes') + ' de ' + cat + '. ¿De qué raza?');
+      opciones([
+        ...razas.map(([r, n]) => ({ label: r + ' (' + n + ')', accion: () => resultadoGanado(cat, r) })),
+        { label: 'Todas las razas (' + deCat.length + ')', accion: () => resultadoGanado(cat, null), principal: true },
+        { label: '🔙 Otras categorías', accion: menuGanado }
+      ]);
+    });
+  }
 
-      if (!categorias.length){
-        agregarBot('Todavía no hay lotes de ' + tipo + ' cargados. ¡Volvé más tarde!');
+  function menuRazas(){
+    conDatos(['Ganado'], lotes => {
+      const razas = contarPor(lotes, razasDeLote);
+      if (!razas.length){ menuGanado(); return; }
+      bot('¿Qué raza buscás?');
+      opciones([
+        ...razas.map(([r, n]) => ({ label: r + ' (' + n + ')', accion: () => elegirCategoriaDeRaza(r) })),
+        volverMenu
+      ]);
+    });
+  }
+
+  function elegirCategoriaDeRaza(raza){
+    conDatos(['Ganado'], lotes => {
+      const deRaza = filtrarGanado(lotes, null, raza);
+      const cats = contarPor(deRaza, categoriasDeLote);
+      if (cats.length <= 1){ resultadoGanado(cats.length ? cats[0][0] : null, raza); return; }
+      bot('De ' + raza + ' tengo ' + plural(deRaza.length, 'lote', 'lotes') + '. ¿Qué categoría?');
+      opciones([
+        ...cats.map(([c, n]) => ({ label: c + ' (' + n + ')', accion: () => resultadoGanado(c, raza) })),
+        { label: 'Todas las categorías (' + deRaza.length + ')', accion: () => resultadoGanado(null, raza), principal: true },
+        { label: '🔙 Otras razas', accion: menuRazas }
+      ]);
+    });
+  }
+
+  function nombreBusqueda(cat, raza){
+    const c = cat === 'Destacados' ? 'lotes destacados' : cat;
+    if (c && raza && norm(c).includes(norm(raza))) return c;            // "Vaquillonas Holando" + Holando
+    if (!c && raza) return 'raza ' + raza;
+    return [c, raza].filter(Boolean).join(' ') || 'ganado';
+  }
+
+  function resultadoGanado(cat, raza){
+    conDatos(['Ganado'], lotes => {
+      const res = filtrarGanado(lotes, cat, raza);
+      const nombre = nombreBusqueda(cat, raza);
+      if (!res.length){
+        bot('Por ahora no tengo lotes de ' + nombre + '.');
+        opciones([avisos(cat), consultar('Ganado', 'Hola ' + WA.Ganado.nombre + ', estoy buscando ' + nombre + '. ¿Tienen algo?'),
+          { label: '🔙 Otras categorías', accion: menuGanado }, volverMenu].filter(Boolean));
         return;
       }
-
-      agregarBot('¿Qué categoría te interesa?');
-      const opciones = categorias.map(c => ({ label: c, value: c }));
-      opciones.push({ label: '🔙 Elegir Ganado o Herramientas', value: '__volver_tipo__' });
-      agregarOpciones(opciones, (categoria) => {
-        if (categoria === '__volver_tipo__'){ mostrarInicio(); return; }
-        mostrarLotes(tipo, categoria, items);
-      });
+      bot(res.length === 1 ? 'Tengo 1 lote de ' + nombre + '.' : 'Tengo ' + res.length + ' lotes de ' + nombre + '. ¿Querés verlos todos juntos?');
+      const unicos = res.length <= 6 ? res.map(l => ({
+        label: 'Lote ' + l.lote + ' · ' + [l.raza, l.cabezas ? l.cabezas + ' cab.' : '', l.peso ? l.peso + ' kg' : ''].filter(Boolean).join(' · '),
+        accion: () => irALoteGanado(l, cat)
+      })) : [];
+      opciones([
+        { label: res.length === 1 ? '👀 Ver el lote' : '👀 Ver los ' + res.length + ' lotes', principal: true,
+          accion: () => res.length === 1 ? irALoteGanado(res[0], cat) : verTodosGanado(cat, raza, res.length) },
+        ...unicos,
+        consultar('Ganado', 'Hola ' + WA.Ganado.nombre + ', me interesan los lotes de ' + nombre + ' que vi en la web.'),
+        avisos(cat),
+        { label: '🔙 Otras categorías', accion: menuGanado }
+      ].filter(Boolean));
     });
   }
 
-  function mostrarLotes(tipo, categoria, items){
-    let filtrados;
-    if (tipo === 'Ganado'){
-      filtrados = categoria === "Destacados" ? items.filter(l => l.destacado === true)
-        : categoria === "Ovinos" ? items.filter(l => isSheepCategory(l.categoria))
-        : items.filter(l => getCategoriasDeLote(l).includes(categoria));
+  function verTodosGanado(cat, raza, n){
+    const categoria = cat && cat !== 'Destacados' ? cat : (cat === 'Destacados' ? 'Destacados' : '');
+    const buscar = raza ? textoBusquedaRaza(raza) : '';
+    if (pagina === 'ganado' && window.CHAT_FILTRAR){
+      bot('¡Listo! Te dejo los ' + n + ' lotes en pantalla 👇');
+      setTimeout(() => { cerrar(); window.CHAT_FILTRAR(categoria, buscar); }, 500);
     } else {
-      filtrados = categoria === "Destacados" ? items.filter(t => t.destacado === true)
-        : items.filter(t => autoCategoria(t.nombre) === categoria);
+      bot('¡Dale! Te llevo a los ' + n + ' lotes…');
+      const p = new URLSearchParams();
+      if (categoria) p.set('categoria', categoria);
+      if (buscar) p.set('buscar', buscar);
+      setTimeout(() => { location.href = 'ganado.html?' + p.toString(); }, 500);
     }
-
-    if (!filtrados.length){
-      agregarBot('No encontré lotes en "' + categoria + '" por ahora.');
-      agregarOpciones([{ label: '🔙 Ver otras categorías', value: '__volver__' }], () => mostrarCategorias(tipo));
-      return;
+  }
+  function irALoteGanado(l, cat){
+    const catDestino = cat && cat !== 'Destacados' ? cat : (categoriasDeLote(l)[0] || 'Todos');
+    if (pagina === 'ganado' && window.CHAT_IR_A_LOTE){
+      bot('¡Dale! Te llevo al lote ' + l.lote + '.');
+      setTimeout(() => { cerrar(); window.CHAT_IR_A_LOTE(catDestino, l.lote); }, 450);
+    } else {
+      bot('¡Dale! Te llevo al lote ' + l.lote + '…');
+      setTimeout(() => { location.href = 'ganado.html?lote=' + encodeURIComponent(l.lote); }, 450);
     }
-
-    if (tipo === 'Ganado'){
-      const razas = [...new Set(filtrados.map(l => (l.raza || '').trim()).filter(Boolean))].sort();
-      if (razas.length > 1){
-        mostrarRazas(tipo, categoria, filtrados, razas);
-      } else {
-        mostrarCantidades(tipo, categoria, filtrados, razas[0] || null);
-      }
-      return;
-    }
-
-    mostrarListaFinal(tipo, categoria, filtrados);
   }
 
-  function mostrarRazas(tipo, categoria, filtrados, razas){
-    agregarBot('¿Qué raza te interesa?');
-    const opciones = razas.map(r => ({ label: r, value: r }));
-    opciones.push({ label: '🔙 Ver otras categorías', value: '__volver__' });
-    agregarOpciones(opciones, (valor) => {
-      if (valor === '__volver__'){ mostrarCategorias(tipo); return; }
-      mostrarCantidades(tipo, categoria, filtrados, valor);
+  /* ---------------- Herramientas ---------------- */
+  function menuHerramientas(){
+    conDatos(['Herramientas'], items => {
+      if (!items.length){ bot('Todavía no hay herramientas cargadas.'); menuPrincipal(); return; }
+      const cats = contarPor(items, t => [categoriaHerramienta(t.nombre)]);
+      const dest = items.filter(t => t.destacado).length;
+      bot('Tengo ' + items.length + ' herramientas. ¿Qué tipo buscás?');
+      opciones([
+        ...(dest ? [{ label: '⭐ Destacadas (' + dest + ')', accion: () => resultadoHerramientas('Destacados') }] : []),
+        ...cats.map(([c, n]) => ({ label: c + ' (' + n + ')', accion: () => resultadoHerramientas(c) })),
+        { label: '👀 Ver todas (' + items.length + ')', accion: () => verTodasHerramientas('', '', items.length), principal: true },
+        volverMenu
+      ]);
+    });
+  }
+  function resultadoHerramientas(cat, lista, textoBuscado){
+    conDatos(['Herramientas'], items => {
+      const res = lista || items.filter(t => cat === 'Destacados' ? t.destacado : categoriaHerramienta(t.nombre) === cat);
+      const nombre = textoBuscado ? '"' + textoBuscado + '"' : (cat === 'Destacados' ? 'destacadas' : cat);
+      if (!res.length){ bot('No encontré herramientas de ' + nombre + '.'); menuHerramientas(); return; }
+      bot(res.length === 1 ? 'Encontré 1 herramienta:' : 'Encontré ' + res.length + ' herramientas de ' + nombre + ':');
+      opciones([
+        ...(res.length > 1 ? [{ label: '👀 Ver las ' + res.length + ' juntas', principal: true,
+          accion: () => verTodasHerramientas(lista ? '' : cat, textoBuscado || '', res.length) }] : []),
+        ...res.slice(0, 8).map(t => ({ label: 'Lote ' + t.lote + ' · ' + (t.nombre || 'Herramienta'), accion: () => irALoteHerramienta(t) })),
+        consultar('Herramientas', 'Hola ' + WA.Herramientas.nombre + ', me interesan las herramientas de ' + nombre + ' del remate.'),
+        { label: '🔙 Otros tipos', accion: menuHerramientas }
+      ]);
+    });
+  }
+  function verTodasHerramientas(cat, buscar, n){
+    const categoria = cat && cat !== 'Destacados' ? cat : (cat === 'Destacados' ? 'Destacados' : '');
+    if (pagina === 'herramientas' && window.CHAT_FILTRAR){
+      bot('¡Listo! Te dejo ' + (n > 1 ? 'las ' + n + ' herramientas' : 'la herramienta') + ' en pantalla 👇');
+      setTimeout(() => { cerrar(); window.CHAT_FILTRAR(categoria, buscar); }, 500);
+    } else {
+      bot('¡Dale! Te llevo…');
+      const p = new URLSearchParams();
+      if (categoria) p.set('categoria', categoria);
+      if (buscar) p.set('buscar', buscar);
+      setTimeout(() => { location.href = 'herramientas.html' + (p.toString() ? '?' + p.toString() : ''); }, 500);
+    }
+  }
+  function irALoteHerramienta(t){
+    if (pagina === 'herramientas' && window.CHAT_IR_A_LOTE){
+      bot('¡Dale! Te llevo a las fotos del lote ' + t.lote + '.');
+      setTimeout(() => { cerrar(); window.CHAT_IR_A_LOTE(categoriaHerramienta(t.nombre), t.lote); }, 450);
+    } else {
+      bot('¡Dale! Te llevo al lote ' + t.lote + '…');
+      setTimeout(() => { location.href = 'herramientas.html?lote=' + encodeURIComponent(t.lote); }, 450);
+    }
+  }
+
+  /* ---------------- Próximo remate ---------------- */
+  function aFecha(f, h){
+    const m = String(f || '').match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+    if (!m) return null;
+    const hm = String(h || '').match(/(\d{1,2})[:.](\d{2})/);
+    const anio = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+    return new Date(anio, Number(m[2]) - 1, Number(m[1]), hm ? Number(hm[1]) : 23, hm ? Number(hm[2]) : 59);
+  }
+  function proximoRemate(){
+    conDatos(['Remates'], remates => {
+      const ahora = new Date();
+      const proximos = remates.map(r => Object.assign({ d: aFecha(r.fecha, r.hora) }, r))
+        .filter(r => r.d && r.d >= new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()))
+        .sort((a, b) => a.d - b.d);
+      if (!proximos.length){
+        bot('Todavía no hay una fecha confirmada para el próximo remate. Si querés, consultá directo:');
+        opciones([consultar('Ganado', 'Hola ' + WA.Ganado.nombre + ', ¿cuándo es el próximo remate?'), volverMenu]);
+        return;
+      }
+      const r = proximos[0];
+      const dia = r.d.toLocaleDateString('es-UY', { weekday: 'long', day: 'numeric', month: 'long' });
+      bot('📅 El próximo es "' + (r.titulo || 'Remate') + '", el ' + dia + (r.hora ? ' a las ' + r.hora : '') + '.' + (r.detalle ? ' ' + r.detalle : ''));
+      if (proximos.length > 1){
+        bot('Después: ' + proximos.slice(1, 3).map(x => (x.titulo || 'Remate') + ' (' + x.fecha + ')').join(', ') + '.');
+      }
+      const herr = /herramient/i.test((r.titulo || '') + ' ' + (r.detalle || ''));
+      opciones([
+        consultar(herr ? 'Herramientas' : 'Ganado', 'Hola ' + WA[herr ? 'Herramientas' : 'Ganado'].nombre + ', quiero anotar un lote para "' + (r.titulo || 'el próximo remate') + '".', '📝 Anotar un lote'),
+        { label: '🗓️ Ver todos los remates', accion: () => { bot('Te llevo a la agenda…'); setTimeout(() => { location.href = (pagina === 'herramientas' ? 'index.html' : '') + '#remates'; cerrar(); }, 400); } },
+        volverMenu
+      ]);
     });
   }
 
-  function mostrarCantidades(tipo, categoria, filtrados, raza){
-    const items2 = raza ? filtrados.filter(l => (l.raza || '').trim() === raza) : filtrados;
-    const cantidades = [...new Set(items2.map(l => String(l.cabezas || '').trim()).filter(Boolean))]
-      .sort((a, b) => Number(a) - Number(b));
-    if (cantidades.length > 1){
-      agregarBot('¿Cuántas cabezas buscás?');
-      const opciones = cantidades.map(c => ({ label: c + ' cabezas', value: c }));
-      opciones.push({ label: '🔙 Ver otras categorías', value: '__volver__' });
-      agregarOpciones(opciones, (valor) => {
-        if (valor === '__volver__'){ mostrarCategorias(tipo); return; }
-        const finales = items2.filter(l => String(l.cabezas || '').trim() === String(valor));
-        mostrarListaFinal(tipo, categoria, finales);
+  /* ---------------- WhatsApp y avisos ---------------- */
+  function consultar(tipo, mensaje, etiqueta){
+    return { label: etiqueta || ('💬 Consultar a ' + WA[tipo].nombre + ' por WhatsApp'), link: 'https://wa.me/' + WA[tipo].num + '?text=' + encodeURIComponent(mensaje) };
+  }
+  function hablar(){
+    bot('Claro, te paso con una persona del escritorio:');
+    opciones([
+      consultar('Ganado', 'Hola ' + WA.Ganado.nombre + ', tengo una consulta.', '🐄 Ganado — ' + WA.Ganado.nombre),
+      consultar('Herramientas', 'Hola ' + WA.Herramientas.nombre + ', tengo una consulta.', '🔧 Herramientas — ' + WA.Herramientas.nombre),
+      volverMenu
+    ]);
+  }
+  function avisos(cat){
+    const trigger = document.getElementById('suscribirTrigger');
+    if (!trigger || pagina !== 'ganado') return null;
+    return { label: '🔔 Avisame cuando entren más', accion: () => {
+      bot('¡Buena idea! Dejame tu mail y te aviso cuando entren lotes nuevos.');
+      setTimeout(() => {
+        cerrar();
+        trigger.click();
+        const sel = document.getElementById('suscribirCategoria');
+        if (sel && cat && [...sel.options].some(o => o.value === cat)) sel.value = cat;
+      }, 600);
+    } };
+  }
+
+  /* ---------------- Lo que escribe el cliente ---------------- */
+  function interpretar(texto){
+    const t = norm(texto);
+    if (/\b(hola|buenas|buen dia|buenas tardes|buenas noches)\b/.test(t) && t.split(' ').length <= 3){
+      bot('¡Hola! ¿Qué estás buscando? Podés escribirme una categoría, una raza o el nombre de una herramienta.');
+      menuPrincipal(true); return;
+    }
+    if (/\b(gracias|genial|perfecto|dale)\b/.test(t) && t.split(' ').length <= 3){ bot('¡De nada! 🙌'); menuPrincipal(true); return; }
+    if (/remate|cuando|fecha|feria|pantalla|agenda/.test(t)){ proximoRemate(); return; }
+    if (/hablar|persona|whatsapp|telefono|celular|llamar|contacto|humano/.test(t)){ hablar(); return; }
+
+    conDatos(['Ganado', 'Herramientas'], (ganado, herr) => {
+      // Número de lote
+      const num = (t.match(/(?:lote\s*)?(\d{1,4})\b/) || [])[1];
+      if (num && /^\s*(lote\s*)?\d{1,4}\s*$/.test(t)){
+        const g = ganado.find(l => String(l.lote) === num);
+        const h = herr.find(x => String(x.lote) === num);
+        if (g && h){
+          bot('El lote ' + num + ' existe en ganado y en herramientas. ¿Cuál querés ver?');
+          opciones([{ label: '🐄 Ganado: ' + (g.categoria || 'lote ' + num), accion: () => irALoteGanado(g) },
+            { label: '🔧 Herramienta: ' + (h.nombre || 'lote ' + num), accion: () => irALoteHerramienta(h) }, volverMenu]);
+          return;
+        }
+        if (g){ irALoteGanado(g); return; }
+        if (h){ irALoteHerramienta(h); return; }
+        bot('No encontré el lote ' + num + '.'); menuPrincipal(true); return;
+      }
+
+      // Ganado: categoría y/o raza
+      const palabras = t.split(/[^a-z0-9ñ]+/).filter(Boolean);
+      const raiz = w => w.replace(/(es|s)$/, '');
+      const clavesRaza = RAZAS.flatMap(([, c]) => c);
+      const palabrasCat = palabras.filter(p => !clavesRaza.some(k => p.includes(k)));
+      const categorias = [...new Set(ganado.flatMap(categoriasDeLote))];
+      const catEncontrada = categorias
+        .map(c => ({ c, claves: norm(c).split(' ').filter(w => w.length > 3).map(raiz) }))
+        .map(x => ({ c: x.c, puntos: x.claves.filter(k => palabrasCat.some(p => raiz(p) === k || raiz(p).startsWith(k))).length, total: x.claves.length }))
+        .filter(x => x.puntos > 0)
+        .sort((a, b) => (b.puntos / b.total) - (a.puntos / a.total) || b.puntos - a.puntos)[0];
+      const razas = razasDeTexto(t);
+      const esOvino = OVINOS.some(k => t.includes(k));
+      const cat = esOvino ? 'Ovinos' : (catEncontrada ? catEncontrada.c : null);
+      if (cat || razas.length){
+        resultadoGanado(cat, razas[0] || null);
+        return;
+      }
+      if (/\b(ganado|vaca|vacas|hacienda|bovino)\b/.test(t)){ menuGanado(); return; }
+
+      // Herramientas: busca en nombre y descripción
+      const utiles = palabras.filter(w => w.length > 2 && !['busco', 'quiero', 'para', 'tenes', 'tienen', 'hay', 'una', 'uno', 'los', 'las', 'del', 'con', 'ver'].includes(w));
+      if (/herramient/.test(t) && utiles.length <= 1){ menuHerramientas(); return; }
+      const encontradas = herr.filter(x => {
+        const txt = norm(x.nombre + ' ' + x.descripcion);
+        return utiles.length && utiles.every(w => txt.includes(raiz(w)));
       });
-      return;
-    }
-    mostrarListaFinal(tipo, categoria, items2);
-  }
+      if (encontradas.length){ resultadoHerramientas(null, encontradas, texto); return; }
 
-  function mostrarListaFinal(tipo, categoria, filtrados){
-    if (!filtrados.length){
-      agregarBot('No encontré lotes con esas características por ahora.');
-      agregarOpciones([{ label: '🔙 Ver otras categorías', value: '__volver__' }], () => mostrarCategorias(tipo));
-      return;
-    }
-
-    if (filtrados.length === 1){
-      const item = filtrados[0];
-      agregarBot('¡Dale! Te llevo al video del lote ' + item.lote + '.');
-      const destinoUnico = tipo === 'Ganado' ? 'ganado.html' : 'herramientas.html';
-      setTimeout(() => {
-        window.location.href = destinoUnico + '?lote=' + encodeURIComponent(item.lote);
-      }, 500);
-      return;
-    }
-
-    agregarBot('Mirá, tengo estos lotes:');
-    const opciones = filtrados.map(item => ({
-      label: 'Lote ' + item.lote + (tipo === 'Ganado'
-        ? (item.cabezas ? ' — ' + item.cabezas + ' cabezas' : '')
-        : (item.nombre ? ' — ' + item.nombre : '')),
-      value: item.lote
-    }));
-    opciones.push({ label: '🔙 Ver otras categorías', value: '__volver__' });
-    agregarOpciones(opciones, (lote) => {
-      if (lote === '__volver__'){ mostrarCategorias(tipo); return; }
-      agregarBot('¡Dale! Te llevo al video del lote ' + lote + '.');
-      const destino = tipo === 'Ganado' ? 'ganado.html' : 'herramientas.html';
-      setTimeout(() => {
-        window.location.href = destino + '?lote=' + encodeURIComponent(lote);
-      }, 500);
+      bot('Mmm, no encontré nada con "' + texto + '" 🤔. Probá con una categoría (terneros, vaquillonas…), una raza (Hereford, Angus…) o el nombre de una herramienta.');
+      menuPrincipal(true);
     });
   }
 
-  function cargarDatos(tipo, callback){
-    if (tipo === 'Ganado' && datosGanado){ callback(datosGanado); return; }
-    if (tipo === 'Herramientas' && datosHerramientas){ callback(datosHerramientas); return; }
-
-    const url = tipo === 'Ganado' ? SHEET_CSV_URL_GANADO : SHEET_CSV_URL_HERRAMIENTAS;
-    if (typeof Papa === 'undefined'){
-      agregarBot('No se pudo cargar la información justo ahora. Probá de nuevo en un momento.');
-      return;
-    }
-    Papa.parse(url, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const items = tipo === 'Ganado'
-          ? results.data.map(row => ({
-              lote: row.lote || row.Lote || '',
-              categoria: row.categoria || row.Categoria || row['Categoría'] || '',
-              cabezas: row.cabezas || row.Cabezas || row.cantidad || row.Cantidad || '',
-              raza: row.raza || row.Raza || '',
-              destacado: isTrue(row.destacado || row.Destacado || row['Lote destacado'] || row.lote_destacado)
-            }))
-          : results.data.map(row => ({
-              lote: row.lote || row.Lote || '',
-              nombre: row.nombre || row.Nombre || row.herramienta || row.Herramienta || '',
-              destacado: isTrue(row.destacado || row.Destacado || row['Lote destacado'])
-            }));
-        if (tipo === 'Ganado') datosGanado = items; else datosHerramientas = items;
-        callback(items);
-      },
-      error: () => {
-        agregarBot('No se pudo cargar la información justo ahora. Probá de nuevo en un momento.');
-      }
-    });
-  }
+  // Precarga liviana para que el chat responda rápido
+  setTimeout(() => { cargar(pagina === 'herramientas' ? 'Herramientas' : 'Ganado').catch(() => {}); }, 2500);
 })();
-
 </script>
-
 <script id="camy-promo-js">
 /* =========================================================
    PROMOCIÓN DEL ASISTENTE
@@ -2705,7 +2961,7 @@ document.getElementById('remateLightbox').addEventListener('click', (e) => {
              : /ganado/.test(location.pathname) ? 'ganado' : 'inicio';
   var TEXTOS = {
     inicio:       ['¡Hola! Soy el asistente de Escritorio Camy 👋', 'Te ayudo a encontrar el lote de ganado o la herramienta que buscás, en segundos.'],
-    ganado:       ['¿Buscás un lote de ganado? 🐄', 'Decime la categoría, la raza y cuántas cabezas, y te llevo directo al video.'],
+    ganado:       ['¿Buscás un lote de ganado? 🐄', 'Decime la categoría y la raza, y te muestro todos los lotes que hay.'],
     herramientas: ['¿Buscás una herramienta? 🔧', 'Te muestro los lotes por categoría y te llevo directo a las fotos.']
   };
 
