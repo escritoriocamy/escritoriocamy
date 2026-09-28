@@ -519,6 +519,10 @@
 /* Mismo Web App que ya usás para las preofertas — no hace falta un link nuevo */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3Cv00MXY4p0WtxKfho7sRl82UXplx92PV3AXBZQQPVnkcosUnD4e4am4kM7sbR067lw/exec";
 
+/* Script de VIDEOS (instalado en el otro Gmail, para no gastar espacio de la cuenta principal).
+   Pegá acá la URL de esa aplicación web. Si queda vacío, los videos van a la cuenta principal. */
+const VIDEO_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCLbTJQ9-zzaxQwy8e_pDstG1ym0u6ZSs54tFNbPAxTbMkQMVGV2fjgkuf0_UYwL4r/exec";
+
 const SITE_URLS = {
   Ganado: "https://escritoriocamy.com.uy/ganado.html",
   Herramientas: "https://escritoriocamy.com.uy/herramientas.html"
@@ -878,8 +882,9 @@ const esperar = ms => new Promise(r => setTimeout(r, ms));
 async function llamarScript(obj, ms){
   const ctrl = new AbortController();
   const corte = setTimeout(() => ctrl.abort(), ms || 90000);
+  const destino = (/SubidaVideo|ParteVideo/.test(obj.accion) && VIDEO_SCRIPT_URL) ? VIDEO_SCRIPT_URL : SCRIPT_URL;
   try {
-    const r = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(obj), signal: ctrl.signal });
+    const r = await fetch(destino, { method: "POST", body: JSON.stringify(obj), signal: ctrl.signal });
     return await r.json();
   } finally { clearTimeout(corte); }
 }
