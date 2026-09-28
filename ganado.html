@@ -20,6 +20,84 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700;8..60,800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script id="camy-carga-planilla">
+/* =========================================================
+   CARGA ROBUSTA DE LA PLANILLA (Google Sheets)
+   - Muestra al instante la última copia guardada en el celular
+   - Si Google tarda, reintenta y prueba otra vía de Google
+   - Cuando llega la versión nueva, actualiza (solo si cambió)
+   Funciona con todas las llamadas Papa.parse(url, {download:true}) de la página.
+   ========================================================= */
+(function(){
+  if (!window.Papa) return;
+  var parseOriginal = Papa.parse.bind(Papa);
+
+  function leerCache(clave){ try { return JSON.parse(localStorage.getItem(clave) || 'null'); } catch(e){ return null; } }
+  function guardarCache(clave, texto){ try { localStorage.setItem(clave, JSON.stringify({ t: Date.now(), texto: texto })); } catch(e){} }
+
+  function urlAlternativa(url){
+    var m = url.match(/\/spreadsheets\/d\/([\w-]+)\/export\?[^#]*gid=(\d+)/);
+    return m ? 'https://docs.google.com/spreadsheets/d/' + m[1] + '/gviz/tq?tqx=out:csv&headers=1&gid=' + m[2] : null;
+  }
+
+  function bajar(url, ms){
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var corte = setTimeout(function(){ if (ctrl) ctrl.abort(); }, ms);
+    var sep = url.indexOf('?') === -1 ? '?' : '&';
+    return fetch(url + sep + '_=' + Date.now(), { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
+      .then(function(r){
+        clearTimeout(corte);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      })
+      .then(function(t){
+        if (!t || /^\s*<(!doctype|html)/i.test(t)) throw new Error('respuesta no válida');
+        return t;
+      }, function(err){ clearTimeout(corte); throw err; });
+  }
+
+  function bajarConReintentos(url){
+    var alt = urlAlternativa(url);
+    var intentos = [ [url, 9000] ];
+    if (alt) intentos.push([alt, 12000]);
+    intentos.push([url, 15000]);
+    var i = 0;
+    function siguiente(){
+      var par = intentos[i++];
+      return bajar(par[0], par[1]).catch(function(err){
+        if (i < intentos.length) return new Promise(function(r){ setTimeout(r, 600); }).then(siguiente);
+        throw err;
+      });
+    }
+    return siguiente();
+  }
+
+  Papa.parse = function(entrada, config){
+    if (typeof entrada !== 'string' || !config || !config.download){
+      return parseOriginal(entrada, config);
+    }
+    var cfg = {};
+    for (var k in config) if (k !== 'download') cfg[k] = config[k];
+    var clave = 'camy_csv_' + entrada;
+    var cache = leerCache(clave);
+    var mostrado = null;
+
+    // 1) Copia guardada: los lotes aparecen al instante
+    if (cache && cache.texto){
+      mostrado = cache.texto;
+      setTimeout(function(){ parseOriginal(cache.texto, cfg); }, 0);
+    }
+
+    // 2) Versión nueva desde Google
+    bajarConReintentos(entrada).then(function(texto){
+      guardarCache(clave, texto);
+      if (texto !== mostrado) parseOriginal(texto, cfg);
+    }).catch(function(err){
+      if (!mostrado && typeof config.error === 'function') config.error(err);
+    });
+  };
+})();
+</script>
 <style>
 
   :root{
