@@ -899,6 +899,8 @@ function leerBase64(blob){
 async function subirVideoPorPartes(v, hoja, lote, alAvanzar){
   const PARTE = 8 * 1024 * 1024;               // múltiplo de 256 KB, como pide Drive
   const file = v.archivo, total = file.size;
+
+  // 1) Abrir la subida (el script de videos crea el lugar en Drive)
   if (!v.sesion){
     let ini = null;
     for (let i = 0; i < 3 && !(ini && ini.success); i++){
@@ -909,34 +911,99 @@ async function subirVideoPorPartes(v, hoja, lote, alAvanzar){
     if (!(ini && ini.success)) throw new Error((ini && ini.message) || "No se pudo empezar a subir el video.");
     v.sesion = ini.sesion;
     v.pos = 0;
+    v.modo = "directo";                        // el celular manda las partes directo a Drive
   }
-  while (v.pos < total){
+
+  // Manda una parte: directo a Drive (rápido) o, si no se puede, a través del script
+  async function enviarParte(inicio, fin){
+    if (v.modo === "directo"){
+      const ctrl = new AbortController();
+      const corte = setTimeout(() => ctrl.abort(), 180000);
+      let resp;
+      try {
+        resp = await fetch(v.sesion, { method: "PUT", headers: { "Content-Range": "bytes " + inicio + "-" + (fin - 1) + "/" + total }, body: file.slice(inicio, fin), signal: ctrl.signal });
+      } catch (e) {
+        // La última parte: Drive guarda el video pero no deja leer su confirmación → le preguntamos al script
+        if (fin === total){ const st = await estadoPorScript().catch(() => null); if (st && st.id) return st; }
+        if (inicio === 0 && !v.directoProbado){ v.modo = "script"; return enviarParte(inicio, fin); }   // el navegador no deja: plan B
+        throw e;
+      } finally { clearTimeout(corte); }
+      v.directoProbado = true;
+      if (resp.status === 308){
+        const m = String(resp.headers.get("Range") || "").match(/bytes=0-(\d+)/);
+        return { siguiente: m ? Number(m[1]) + 1 : fin };
+      }
+      if (resp.status === 200 || resp.status === 201){
+        const d = await resp.json().catch(() => ({}));
+        if (d.id) return { id: d.id };
+        return await consultarEstado();
+      }
+      throw new Error("Drive respondió " + resp.status);
+    }
+    const base64 = await leerBase64(file.slice(inicio, fin));
+    const r = await llamarScript({ accion: "subirParteVideo", clave: claveGuardada, sesion: v.sesion, inicio, total, base64 });
+    if (!r || !r.success) throw new Error((r && r.message) || "falló una parte");
+    return r.terminado ? { id: r.id } : { siguiente: (r.siguiente && r.siguiente > inicio) ? r.siguiente : fin };
+  }
+
+  // Pregunta a Drive hasta dónde llegó (después de un corte de señal)
+  async function consultarEstado(){
+    if (v.modo === "directo"){
+      try {
+        const resp = await fetch(v.sesion, { method: "PUT", headers: { "Content-Range": "bytes */" + total } });
+        if (resp.status === 308){
+          const m = String(resp.headers.get("Range") || "").match(/bytes=0-(\d+)/);
+          return { siguiente: m ? Number(m[1]) + 1 : 0 };
+        }
+      } catch (e) {}
+      return estadoPorScript();                 // ya terminó (o el navegador no deja leer): pregunta el script
+    }
+    return estadoPorScript();
+  }
+  async function estadoPorScript(){
+    const st = await llamarScript({ accion: "subirParteVideo", clave: claveGuardada, sesion: v.sesion, inicio: 0, total, base64: "", estado: true }, 30000);
+    if (st && st.terminado) return { id: st.id };
+    if (st && st.success && typeof st.siguiente === "number") return { siguiente: st.siguiente };
+    throw new Error("sin estado");
+  }
+
+  // 2) Mandar las partes
+  let id = null;
+  while (!id && v.pos < total){
     const fin = Math.min(v.pos + PARTE, total);
     let intentos = 0, r = null;
     while (true){
-      try {
-        const base64 = await leerBase64(file.slice(v.pos, fin));
-        r = await llamarScript({ accion: "subirParteVideo", clave: claveGuardada, sesion: v.sesion, inicio: v.pos, total, base64 });
-        if (r && r.success) break;
-        throw new Error((r && r.message) || "falló una parte");
-      } catch (e) {
+      try { r = await enviarParte(v.pos, fin); break; }
+      catch (e) {
         intentos++;
         if (intentos > 5) throw new Error("Se cortó la subida del video varias veces. Revisá la señal y tocá Publicar de nuevo: sigue desde donde quedó.");
         alAvanzar(v.pos / total, "Se cortó la señal, reintentando…");
         await esperar(2500 * intentos);
-        // Preguntar a Drive hasta dónde llegó, para seguir desde ahí
         try {
-          const st = await llamarScript({ accion: "subirParteVideo", clave: claveGuardada, sesion: v.sesion, inicio: 0, total, base64: "", estado: true }, 30000);
-          if (st && st.terminado) return st.id;
-          if (st && st.success && typeof st.siguiente === "number" && st.siguiente !== v.pos){ v.pos = st.siguiente; break; }
+          const st = await consultarEstado();
+          if (st.id){ r = st; break; }
+          if (typeof st.siguiente === "number" && st.siguiente !== v.pos){ v.pos = st.siguiente; r = null; break; }
         } catch (e2) {}
       }
     }
-    if (r && r.terminado) return r.id;
-    if (r && r.success) v.pos = (r.siguiente && r.siguiente > v.pos) ? r.siguiente : fin;
-    alAvanzar(v.pos / total);
+    if (r && r.id){ id = r.id; break; }
+    if (r && typeof r.siguiente === "number") v.pos = r.siguiente;
+    alAvanzar(Math.min(v.pos / total, 0.99));
   }
-  throw new Error("La subida terminó sin confirmación de Drive. Probá de nuevo.");
+  if (!id){
+    const st = await consultarEstado().catch(() => ({}));
+    id = st.id;
+  }
+  if (!id) throw new Error("La subida terminó sin confirmación de Drive. Probá de nuevo.");
+
+  // 3) Dejar el video visible (lo hace el script de videos, dueño del archivo)
+  if (VIDEO_SCRIPT_URL){
+    for (let i = 0; i < 3; i++){
+      try { const t = await llamarScript({ accion: "terminarSubidaVideo", clave: claveGuardada, id }, 60000); if (t && t.success) break; } catch (e) {}
+      await esperar(1500);
+    }
+  }
+  return id;
 }
 
 function renderVideoThumb(){
