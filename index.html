@@ -2823,16 +2823,29 @@ document.getElementById('remateLightbox').addEventListener('click', (e) => {
 
   var items = [];
   function recolectar(){
+    // Elementos que la página sacó (ej: se redibujó la lista o la cuenta regresiva):
+    // el que aparezca en su mismo lugar hereda su estado y no vuelve a animarse.
+    var viejos = {};
+    items.forEach(function(it){ if (!it.el.isConnected) viejos[it.g.sel + '#' + it.i] = it; });
+    items = items.filter(function(it){ return it.el.isConnected; });
+
     var vistos = new Set(items.map(function(it){ return it.el; }));
     GRUPOS.forEach(function(g){
       document.querySelectorAll(g.sel).forEach(function(el, i){
         if (vistos.has(el)) return;
         vistos.add(el);
         el.classList.add('mov');
-        items.push({ el: el, g: g, i: i, x: 0, y: 40, s: 0.9, o: 0 });
+        var prev = viejos[g.sel + '#' + i];
+        if (prev){
+          el.style.translate = prev.el.style.translate;
+          el.style.scale = prev.el.style.scale;
+          el.style.opacity = prev.el.style.opacity;
+          items.push({ el: el, g: g, i: i, x: prev.x, y: prev.y, s: prev.s, o: prev.o, heredado: true });
+        } else {
+          items.push({ el: el, g: g, i: i, x: 0, y: 40, s: 0.9, o: 0 });
+        }
       });
     });
-    items = items.filter(function(it){ return it.el.isConnected; });
   }
 
   /* ---------- Cálculo de la posición objetivo según el scroll ---------- */
@@ -2917,8 +2930,11 @@ document.getElementById('remateLightbox').addEventListener('click', (e) => {
   new MutationObserver(function(){
     clearTimeout(pendiente);
     pendiente = setTimeout(function(){
-      var antes = items.length; recolectar();
-      for (var i = antes; i < items.length; i++){ var o = objetivo(items[i]); if (o){ items[i].x = o.x; items[i].y = o.y + 40; items[i].o = 0; } }
+      var antes = items.filter(function(it){ return it.el.isConnected; }).length; recolectar();
+      for (var i = antes; i < items.length; i++){
+        if (items[i].heredado) continue;
+        var o = objetivo(items[i]); if (o){ items[i].x = o.x; items[i].y = o.y + 40; items[i].o = 0; }
+      }
       despertar();
     }, 60);
   }).observe(document.body, { childList: true, subtree: true });
