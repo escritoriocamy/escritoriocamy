@@ -1796,10 +1796,68 @@ document.getElementById('remateLightbox').addEventListener('click', (e) => {
       return;
     }
 
-    agregarBot('Mirá, tengo estos lotes de ' + categoria + ':');
+    if (tipo === 'Ganado'){
+      const razas = [...new Set(filtrados.map(l => (l.raza || '').trim()).filter(Boolean))].sort();
+      if (razas.length > 1){
+        mostrarRazas(tipo, categoria, filtrados, razas);
+      } else {
+        mostrarCantidades(tipo, categoria, filtrados, razas[0] || null);
+      }
+      return;
+    }
+
+    mostrarListaFinal(tipo, categoria, filtrados);
+  }
+
+  function mostrarRazas(tipo, categoria, filtrados, razas){
+    agregarBot('¿Qué raza te interesa?');
+    const opciones = razas.map(r => ({ label: r, value: r }));
+    opciones.push({ label: '🔙 Ver otras categorías', value: '__volver__' });
+    agregarOpciones(opciones, (valor) => {
+      if (valor === '__volver__'){ mostrarCategorias(tipo); return; }
+      mostrarCantidades(tipo, categoria, filtrados, valor);
+    });
+  }
+
+  function mostrarCantidades(tipo, categoria, filtrados, raza){
+    const items2 = raza ? filtrados.filter(l => (l.raza || '').trim() === raza) : filtrados;
+    const cantidades = [...new Set(items2.map(l => String(l.cabezas || '').trim()).filter(Boolean))]
+      .sort((a, b) => Number(a) - Number(b));
+    if (cantidades.length > 1){
+      agregarBot('¿Cuántas cabezas buscás?');
+      const opciones = cantidades.map(c => ({ label: c + ' cabezas', value: c }));
+      opciones.push({ label: '🔙 Ver otras categorías', value: '__volver__' });
+      agregarOpciones(opciones, (valor) => {
+        if (valor === '__volver__'){ mostrarCategorias(tipo); return; }
+        const finales = items2.filter(l => String(l.cabezas || '').trim() === String(valor));
+        mostrarListaFinal(tipo, categoria, finales);
+      });
+      return;
+    }
+    mostrarListaFinal(tipo, categoria, items2);
+  }
+
+  function mostrarListaFinal(tipo, categoria, filtrados){
+    if (!filtrados.length){
+      agregarBot('No encontré lotes con esas características por ahora.');
+      agregarOpciones([{ label: '🔙 Ver otras categorías', value: '__volver__' }], () => mostrarCategorias(tipo));
+      return;
+    }
+
+    if (filtrados.length === 1){
+      const item = filtrados[0];
+      agregarBot('¡Dale! Te llevo al video del lote ' + item.lote + '.');
+      const destinoUnico = tipo === 'Ganado' ? 'ganado.html' : 'herramientas.html';
+      setTimeout(() => {
+        window.location.href = destinoUnico + '?lote=' + encodeURIComponent(item.lote);
+      }, 500);
+      return;
+    }
+
+    agregarBot('Mirá, tengo estos lotes:');
     const opciones = filtrados.map(item => ({
       label: 'Lote ' + item.lote + (tipo === 'Ganado'
-        ? (item.cabezas ? ' — ' + item.cabezas + ' cab.' : '')
+        ? (item.cabezas ? ' — ' + item.cabezas + ' cabezas' : '')
         : (item.nombre ? ' — ' + item.nombre : '')),
       value: item.lote
     }));
