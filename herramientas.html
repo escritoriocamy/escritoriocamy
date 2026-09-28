@@ -2406,6 +2406,10 @@ function toolMedia(t){
     if(yt){
       return `<div class="lot-media"><iframe src="https://www.youtube.com/embed/${yt[1]}" allowfullscreen loading="lazy"></iframe></div>`;
     }
+    const drive = video.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?[^#]*id=)([\w-]+)/);
+    if(drive){
+      return `<div class="lot-media"><iframe src="https://drive.google.com/file/d/${drive[1]}/preview" allow="autoplay; fullscreen" allowfullscreen loading="lazy"></iframe></div>`;
+    }
     return `<div class="lot-media"><video src="${video}" controls playsinline preload="metadata"></video></div>`;
   }
   return photoMedia(t.fotos, t.lote);

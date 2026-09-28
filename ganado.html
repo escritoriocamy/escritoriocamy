@@ -2429,6 +2429,11 @@ function embedMedia(url){
   if(yt){
     return { html:`<div class="lot-media"><iframe src="https://www.youtube.com/embed/${yt[1]}" allowfullscreen loading="lazy"></iframe></div>`, hasVideo:true };
   }
+  // Videos subidos desde "Cargar lote" a Google Drive
+  const drive = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?[^#]*id=)([\w-]+)/);
+  if(drive){
+    return { html:`<div class="lot-media"><iframe src="https://drive.google.com/file/d/${drive[1]}/preview" allow="autoplay; fullscreen" allowfullscreen loading="lazy"></iframe></div>`, hasVideo:true };
+  }
   // Videos subidos desde "Cargar lote": su imagen de portada está al lado, con el mismo nombre en .jpg
   const portada = /\/media\/lotes\/[^?#]+\.(mp4|mov|m4v|webm)/i.test(url) ? url.replace(/\.(mp4|mov|m4v|webm)(?=$|[?#])/i, '.jpg') : '';
   return { html:`<div class="lot-media"><video src="${url}"${portada ? ` poster="${portada}"` : ''} controls playsinline preload="metadata"></video></div>`, hasVideo:true };

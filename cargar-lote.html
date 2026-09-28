@@ -248,6 +248,9 @@
   .submit-btn.loading .btn-text{ display:none; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
+  .progress-bar{ height:8px; border-radius:99px; background:#e2e9df; overflow:hidden; margin-top:12px; display:none; }
+  .progress-bar.show{ display:block; }
+  .progress-bar span{ display:block; height:100%; width:0; background:var(--gold-600); border-radius:99px; transition:width .4s ease; }
   .progress-note{
     text-align:center;
     font-size:12.5px;
@@ -485,7 +488,7 @@
           <span class="filebox-label">🎥 Tocá para elegir un video de la galería</span>
           <div class="thumbs" id="videoThumbs"></div>
         </div>
-        <span class="hint">Mejor cortito (10-15 segundos) para que suba rápido. Si el video pesa mucho, va a tardar más o puede fallar — probá con Wi-Fi si podés.</span>
+        <span class="hint">Podés subir videos largos (1 minuto o más): se suben por partes y, si se corta la señal, siguen solos. <b>Tip:</b> en el iPhone, Ajustes → Cámara → Grabar video → <b>1080p a 30 cps</b>: los videos pesan 3 veces menos y suben mucho más rápido.</span>
         <span class="hint" id="videoEditHint" style="display:none"></span>
       </div>
 
@@ -493,6 +496,7 @@
         <span class="spinner"></span>
         <span class="btn-text">Publicar lote</span>
       </button>
+      <div class="progress-bar" id="progressBar"><span></span></div>
       <div class="progress-note" id="progressNote"></div>
 
     </form>
@@ -594,6 +598,7 @@ function reiniciarCampos(){
   loteEncontrado = false;
   fotosArchivos = [];
   fotosProcesando = 0;
+  if ($("progressBar")) $("progressBar").classList.remove("show");
   portadaPromesa = null;
   portadaExistente = null;
   videoArchivo = null;
@@ -842,29 +847,92 @@ $("videoInput").addEventListener("change", (ev) => {
   ev.target.value = "";
   if (!file) return;
 
-  const MAX_BYTES = 35 * 1024 * 1024; // ~35MB
+  const MAX_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
   if (file.size > MAX_BYTES){
-    mostrarError("Ese video pesa mucho (" + Math.round(file.size/1024/1024) + "MB). Grabá uno más corto (10-15 segundos) o bajá la calidad de la cámara.");
+    mostrarError("Ese video pesa " + Math.round(file.size/1024/1024) + " MB, es demasiado. Grabalo en 1080p o recortalo un poco.");
     return;
   }
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
+  ocultarError();
+  {
     videoArchivo = {
+      archivo: file,
       nombre: file.name || "video.mp4",
       mimeType: file.type || "video/mp4",
-      base64: e.target.result.split(",")[1],
+      tamanoMB: Math.round(file.size / 1024 / 1024),
       preview: URL.createObjectURL(file)
     };
     renderVideoThumb();
+    if (file.size > 300 * 1024 * 1024){
+      $("progressNote").textContent = "Video de " + videoArchivo.tamanoMB + " MB: va a tardar varios minutos en subir. Mejor con Wi-Fi.";
+    }
     const este = videoArchivo;
     portadaPromesa = capturarPortada(este.preview, false).then(img => {
       if (videoArchivo === este && img){ este.portada = img; renderVideoThumb(); }
       return img;
     });
-  };
-  reader.readAsDataURL(file);
+  }
 });
+
+/* ---------- Subida del video a Google Drive, en partes de 8 MB ---------- */
+const esperar = ms => new Promise(r => setTimeout(r, ms));
+async function llamarScript(obj, ms){
+  const ctrl = new AbortController();
+  const corte = setTimeout(() => ctrl.abort(), ms || 90000);
+  try {
+    const r = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(obj), signal: ctrl.signal });
+    return await r.json();
+  } finally { clearTimeout(corte); }
+}
+function leerBase64(blob){
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(String(fr.result).split(",")[1] || "");
+    fr.onerror = () => rej(fr.error);
+    fr.readAsDataURL(blob);
+  });
+}
+async function subirVideoPorPartes(v, hoja, lote, alAvanzar){
+  const PARTE = 8 * 1024 * 1024;               // múltiplo de 256 KB, como pide Drive
+  const file = v.archivo, total = file.size;
+  if (!v.sesion){
+    let ini = null;
+    for (let i = 0; i < 3 && !(ini && ini.success); i++){
+      try { ini = await llamarScript({ accion: "iniciarSubidaVideo", clave: claveGuardada, hoja, lote, nombre: v.nombre, mimeType: v.mimeType, total }); }
+      catch (e) { ini = null; }
+      if (!(ini && ini.success)) await esperar(2000 * (i + 1));
+    }
+    if (!(ini && ini.success)) throw new Error((ini && ini.message) || "No se pudo empezar a subir el video.");
+    v.sesion = ini.sesion;
+    v.pos = 0;
+  }
+  while (v.pos < total){
+    const fin = Math.min(v.pos + PARTE, total);
+    let intentos = 0, r = null;
+    while (true){
+      try {
+        const base64 = await leerBase64(file.slice(v.pos, fin));
+        r = await llamarScript({ accion: "subirParteVideo", clave: claveGuardada, sesion: v.sesion, inicio: v.pos, total, base64 });
+        if (r && r.success) break;
+        throw new Error((r && r.message) || "falló una parte");
+      } catch (e) {
+        intentos++;
+        if (intentos > 5) throw new Error("Se cortó la subida del video varias veces. Revisá la señal y tocá Publicar de nuevo: sigue desde donde quedó.");
+        alAvanzar(v.pos / total, "Se cortó la señal, reintentando…");
+        await esperar(2500 * intentos);
+        // Preguntar a Drive hasta dónde llegó, para seguir desde ahí
+        try {
+          const st = await llamarScript({ accion: "subirParteVideo", clave: claveGuardada, sesion: v.sesion, inicio: 0, total, base64: "", estado: true }, 30000);
+          if (st && st.terminado) return st.id;
+          if (st && st.success && typeof st.siguiente === "number" && st.siguiente !== v.pos){ v.pos = st.siguiente; break; }
+        } catch (e2) {}
+      }
+    }
+    if (r && r.terminado) return r.id;
+    if (r && r.success) v.pos = (r.siguiente && r.siguiente > v.pos) ? r.siguiente : fin;
+    alAvanzar(v.pos / total);
+  }
+  throw new Error("La subida terminó sin confirmación de Drive. Probá de nuevo.");
+}
 
 function renderVideoThumb(){
   const cont = $("videoThumbs");
@@ -957,9 +1025,6 @@ $("loteForm").addEventListener("submit", async (ev) => {
     datos,
     fotos: fotosArchivos.map(f => ({ nombre: f.nombre, mimeType: f.mimeType, base64: f.base64 })),
   };
-  if (videoArchivo){
-    payload.video = { nombre: videoArchivo.nombre, mimeType: videoArchivo.mimeType, base64: videoArchivo.base64 };
-  }
   if (portadaPromesa && !(videoArchivo && videoArchivo.portada) && !portadaExistente){
     $("progressNote").textContent = "Preparando la imagen del video…";
     await Promise.race([portadaPromesa, new Promise(r => setTimeout(r, 8000))]);
@@ -970,7 +1035,40 @@ $("loteForm").addEventListener("submit", async (ev) => {
   const btn = $("submitBtn");
   btn.disabled = true;
   btn.classList.add("loading");
-  $("progressNote").textContent = videoArchivo ? "Subiendo video y datos, puede tardar un poco…" : (modoActual === "editar" ? "Guardando cambios…" : "Publicando lote…");
+
+  // Video: se sube primero a Google Drive, por partes
+  if (videoArchivo && videoArchivo.archivo && !videoArchivo.driveId){
+    let pantalla = null;
+    try { if (navigator.wakeLock) pantalla = await navigator.wakeLock.request("screen"); } catch (e) {}
+    const barra = $("progressBar");
+    barra.classList.add("show");
+    const avanzar = (fr, aviso) => {
+      barra.querySelector("span").style.width = Math.round(fr * 100) + "%";
+      $("progressNote").textContent = aviso || ("Subiendo video… " + Math.round(fr * 100) + "% (" +
+        Math.round(fr * videoArchivo.tamanoMB) + " de " + videoArchivo.tamanoMB + " MB). No cierres esta pantalla.");
+    };
+    avanzar(videoArchivo.pos ? videoArchivo.pos / videoArchivo.archivo.size : 0);
+    try {
+      // Si es un lote nuevo, confirmar antes que el número esté libre (para no subir el video de gusto)
+      if (modoActual === "nuevo" && !videoArchivo.sesion && ultimoEnvioSinRespuesta !== tipoActual + "|" + lote){
+        try {
+          const ya = await (await fetch(SCRIPT_URL + "?accion=obtenerLote&hoja=" + encodeURIComponent(tipoActual) + "&lote=" + encodeURIComponent(lote))).json();
+          if (ya && ya.success) throw new Error("Ya existe un lote número " + lote + " en " + tipoActual + ". Elegí otro número.");
+        } catch (e) { if (/Ya existe/.test(e.message)) throw e; }
+      }
+      videoArchivo.driveId = await subirVideoPorPartes(videoArchivo, tipoActual, lote, avanzar);
+      avanzar(1, "✓ Video subido. Guardando el lote…");
+    } catch (err) {
+      mostrarError(err.message || "No se pudo subir el video.");
+      btn.disabled = false;
+      btn.classList.remove("loading");
+      try { if (pantalla) pantalla.release(); } catch (e) {}
+      return;
+    }
+    try { if (pantalla) pantalla.release(); } catch (e) {}
+  }
+  if (videoArchivo && videoArchivo.driveId) payload.videoDriveId = videoArchivo.driveId;
+  if (!(videoArchivo && videoArchivo.archivo)) $("progressNote").textContent = modoActual === "editar" ? "Guardando cambios…" : "Publicando lote…";
 
   try {
     const ctrl = new AbortController();
@@ -1010,7 +1108,7 @@ $("loteForm").addEventListener("submit", async (ev) => {
         ? (subidas > 1 ? " Se subieron " + subidas + " fotos." : " Se subió 1 foto.")
         : " ⚠️ Solo se subieron " + subidas + " de " + fotosEnviadas + " fotos.";
     }
-    if (payload.video && !data.videoSubido){
+    if (payload.videoDriveId && !data.videoSubido){
       detalle += " El video no se pudo subir automáticamente todavía. Avisale a quien armó la web para revisar la conexión con GitHub.";
     }
     mostrarExito(detalle);
