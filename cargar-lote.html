@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Cargar lote — Escritorio Camy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700;8..60,800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+
+  :root{
+    --olive-900:#1c2e1f;
+    --olive-800:#28402d;
+    --gold-600:#4f8a57;
+    --gold-700:#3a6b42;
+    --cream:#eef2ec;
+    --card:#ffffff;
+    --ink:#211d16;
+    --ink-soft:#6b6555;
+    --line:#d9e3d7;
+    --danger:#b23b3b;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--cream);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+
+  .topbar{
+    background:var(--olive-900);
+    color:#fff;
+    padding:18px 20px;
+    text-align:center;
+  }
+  .topbar h1{
+    font-family:'Source Serif 4', serif;
+    font-size:20px;
+    font-weight:700;
+    margin:0 0 2px;
+  }
+  .topbar p{
+    margin:0;
+    font-size:13px;
+    color:#c9d6c5;
+  }
+
+  .wrap{
+    max-width:520px;
+    margin:0 auto;
+    padding:20px 16px 0;
+  }
+
+  /* ---------- Tabs Ganado / Herramientas ---------- */
+  .tabs{
+    display:flex;
+    background:#e2e9df;
+    border-radius:12px;
+    padding:4px;
+    gap:4px;
+    margin-bottom:18px;
+  }
+  .tab{
+    flex:1;
+    text-align:center;
+    padding:11px 8px;
+    border-radius:9px;
+    border:none;
+    background:transparent;
+    color:var(--ink-soft);
+    font-family:'Inter', sans-serif;
+    font-weight:700;
+    font-size:14.5px;
+    cursor:pointer;
+    transition:background .15s ease-out, color .15s ease-out;
+  }
+  .tab.active{
+    background:var(--card);
+    color:var(--olive-900);
+    box-shadow:0 1px 3px rgba(28,46,31,.15);
+  }
+  .tab:active{ transform:scale(.98); }
+
+  /* ---------- Card / form ---------- */
+  .card{
+    background:var(--card);
+    border-radius:16px;
+    padding:20px 18px 22px;
+    box-shadow:0 2px 10px rgba(28,46,31,.08);
+    margin-bottom:20px;
+  }
+
+  .field{
+    margin-bottom:16px;
+  }
+  .field label{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:var(--olive-900);
+    margin-bottom:6px;
+  }
+  .field .hint{
+    display:block;
+    font-size:12px;
+    color:var(--ink-soft);
+    margin-top:5px;
+  }
+  .field input[type="text"],
+  .field input[type="number"],
+  .field textarea{
+    width:100%;
+    padding:12px 13px;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    font-family:'Inter', sans-serif;
+    font-size:15px;
+    color:var(--ink);
+    background:#fbfcfa;
+    transition:border-color .15s ease-out;
+  }
+  .field input:focus, .field textarea:focus{
+    outline:none;
+    border-color:var(--gold-600);
+  }
+  .field textarea{ resize:vertical; min-height:70px; }
+
+  .field-check{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:4px 0;
+  }
+  .field-check input{ width:19px; height:19px; accent-color:var(--gold-600); }
+  .field-check label{ font-size:14px; font-weight:600; color:var(--ink); margin:0; }
+
+  /* ---------- Subida de archivos ---------- */
+  .filebox{
+    border:1.5px dashed var(--line);
+    border-radius:10px;
+    padding:16px;
+    text-align:center;
+    background:#fbfcfa;
+    cursor:pointer;
+    transition:border-color .15s ease-out, background .15s ease-out;
+  }
+  .filebox:active{ transform:scale(.99); }
+  .filebox.has-files{ border-style:solid; border-color:var(--gold-600); }
+  .filebox input{ display:none; }
+  .filebox .filebox-label{
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--gold-700);
+  }
+  .thumbs{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+  }
+  .thumbs .thumb{
+    position:relative;
+    width:64px;
+    height:64px;
+    border-radius:8px;
+    overflow:hidden;
+    background:#e2e9df;
+  }
+  .thumbs .thumb img, .thumbs .thumb video{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .thumbs .thumb .rm{
+    position:absolute;
+    top:2px;
+    right:2px;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:rgba(20,20,15,.65);
+    color:#fff;
+    border:none;
+    font-size:12px;
+    line-height:18px;
+    padding:0;
+    cursor:pointer;
+  }
+
+  /* ---------- Botón enviar ---------- */
+  .submit-btn{
+    width:100%;
+    padding:15px;
+    border:none;
+    border-radius:12px;
+    background:var(--gold-600);
+    color:#fff;
+    font-family:'Inter', sans-serif;
+    font-weight:700;
+    font-size:15.5px;
+    cursor:pointer;
+    transition:background .15s ease-out, transform .12s ease-out, opacity .15s ease-out;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+  }
+  .submit-btn:hover{ background:var(--gold-700); }
+  .submit-btn:active{ transform:scale(.97); }
+  .submit-btn:disabled{ opacity:.6; cursor:default; transform:none; }
+
+  .spinner{
+    width:16px; height:16px;
+    border:2px solid rgba(255,255,255,.4);
+    border-top-color:#fff;
+    border-radius:50%;
+    animation:spin .7s linear infinite;
+    display:none;
+  }
+  .submit-btn.loading .spinner{ display:inline-block; }
+  .submit-btn.loading .btn-text{ display:none; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .progress-note{
+    text-align:center;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-top:10px;
+    min-height:16px;
+  }
+
+  .error-box{
+    background:#fbeaea;
+    border:1.5px solid #e3b3b3;
+    color:var(--danger);
+    border-radius:10px;
+    padding:12px 14px;
+    font-size:13.5px;
+    margin-bottom:16px;
+    display:none;
+  }
+  .error-box.show{ display:block; }
+
+  /* ---------- Pantalla de éxito ---------- */
+  .success-screen{
+    display:none;
+    text-align:center;
+    padding:40px 20px;
+  }
+  .success-screen.show{ display:block; animation:pop .25s ease-out; }
+  @keyframes pop{
+    from{ opacity:0; transform:scale(.95); }
+    to{ opacity:1; transform:scale(1); }
+  }
+  .success-screen svg{
+    width:56px; height:56px;
+    color:var(--gold-600);
+    margin-bottom:14px;
+  }
+  .success-screen h2{
+    font-family:'Source Serif 4', serif;
+    font-size:22px;
+    margin:0 0 8px;
+    color:var(--olive-900);
+  }
+  .success-screen p{
+    color:var(--ink-soft);
+    font-size:14px;
+    margin:0 0 22px;
+  }
+  .success-actions{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .success-actions a, .success-actions button{
+    display:block;
+    text-decoration:none;
+    padding:13px;
+    border-radius:11px;
+    font-family:'Inter', sans-serif;
+    font-weight:700;
+    font-size:14.5px;
+    cursor:pointer;
+    border:none;
+    transition:transform .12s ease-out, opacity .15s ease-out;
+  }
+  .success-actions a:active, .success-actions button:active{ transform:scale(.97); }
+  .btn-primary{ background:var(--gold-600); color:#fff; }
+  .btn-secondary{ background:#e2e9df; color:var(--olive-900); }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation:none !important; transition:none !important; }
+  }
+
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <h1>Cargar lote nuevo</h1>
+    <p>Completá los datos y las fotos o el video desde acá — se publica solo en la web</p>
+  </div>
+
+  <div class="wrap">
+
+    <div class="tabs" id="tabs">
+      <button type="button" class="tab active" data-tipo="Ganado">🐄 Ganado</button>
+      <button type="button" class="tab" data-tipo="Herramientas">🔧 Herramientas</button>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <form id="loteForm" class="card">
+
+      <div class="field">
+        <label for="fLote">Número de lote</label>
+        <input type="number" id="fLote" min="1" required>
+        <span class="hint" id="loteHint">Buscando el próximo número disponible…</span>
+      </div>
+
+      <!-- Campos de Ganado -->
+      <div id="camposGanado">
+        <div class="field">
+          <label for="gCategoria">Categoría</label>
+          <input type="text" id="gCategoria" placeholder="Ej: Novillos Hereford, Vaquillonas Angus...">
+        </div>
+        <div class="field">
+          <label for="gRaza">Raza</label>
+          <input type="text" id="gRaza" placeholder="Ej: Hereford, Angus, Holando...">
+        </div>
+        <div class="field">
+          <label for="gCabezas">Cabezas</label>
+          <input type="number" id="gCabezas" min="1" placeholder="Ej: 42">
+        </div>
+        <div class="field">
+          <label for="gPeso">Peso promedio (kg)</label>
+          <input type="number" id="gPeso" min="1" placeholder="Ej: 410">
+        </div>
+        <div class="field">
+          <label for="gUbicacion">Ubicación</label>
+          <input type="text" id="gUbicacion" placeholder="Ej: Est. La Aurora, Cerro Largo">
+        </div>
+        <div class="field">
+          <label for="gComentario">Comentario</label>
+          <textarea id="gComentario" placeholder="Cualquier detalle extra del lote"></textarea>
+        </div>
+      </div>
+
+      <!-- Campos de Herramientas -->
+      <div id="camposHerramientas" style="display:none">
+        <div class="field">
+          <label for="hNombre">Nombre de la herramienta</label>
+          <input type="text" id="hNombre" placeholder="Ej: Motosierra Stihl MS 250">
+        </div>
+        <div class="field">
+          <label for="hDescripcion">Descripción</label>
+          <textarea id="hDescripcion" placeholder="Estado, detalles, accesorios incluidos..."></textarea>
+        </div>
+        <div class="field">
+          <label>Fotos</label>
+          <div class="filebox" id="fotosBox">
+            <input type="file" id="fotosInput" accept="image/*" multiple capture="environment">
+            <span class="filebox-label">📷 Tocá para sacar o elegir fotos</span>
+            <div class="thumbs" id="fotosThumbs"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="fBase">Precio base (US$, opcional)</label>
+        <input type="number" id="fBase" min="0" placeholder="Dejalo vacío si no tiene base">
+      </div>
+
+      <div class="field field-check">
+        <input type="checkbox" id="fDestacado">
+        <label for="fDestacado">Lote destacado</label>
+      </div>
+
+      <div class="field">
+        <label>Video del lote (opcional)</label>
+        <div class="filebox" id="videoBox">
+          <input type="file" id="videoInput" accept="video/*" capture="environment">
+          <span class="filebox-label">🎥 Tocá para grabar o elegir un video</span>
+          <div class="thumbs" id="videoThumbs"></div>
+        </div>
+        <span class="hint">Mejor cortito (10-15 segundos) para que suba rápido. Si el video pesa mucho, va a tardar más o puede fallar — probá con Wi-Fi si podés.</span>
+      </div>
+
+      <button type="submit" class="submit-btn" id="submitBtn">
+        <span class="spinner"></span>
+        <span class="btn-text">Publicar lote</span>
+      </button>
+      <div class="progress-note" id="progressNote"></div>
+
+    </form>
+
+    <div class="success-screen" id="successScreen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
+      <h2>¡Lote publicado!</h2>
+      <p id="successDetail">Ya está disponible en la web.</p>
+      <div class="success-actions">
+        <button type="button" class="btn-primary" id="btnOtroLote">Cargar otro lote</button>
+        <a class="btn-secondary" id="btnVerWeb" href="#" target="_blank" rel="noopener">Ver en la web</a>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+/* Mismo Web App que ya usás para las preofertas — no hace falta un link nuevo */
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3Cv00MXY4p0WtxKfho7sRl82UXplx92PV3AXBZQQPVnkcosUnD4e4am4kM7sbR067lw/exec";
+
+const SITE_URLS = {
+  Ganado: "https://escritoriocamy.com.uy/ganado.html",
+  Herramientas: "https://escritoriocamy.com.uy/herramientas.html"
+};
+
+let tipoActual = "Ganado";
+let fotosArchivos = [];   // [{nombre, mimeType, base64}]
+let videoArchivo = null;  // {nombre, mimeType, base64}
+
+const $ = (id) => document.getElementById(id);
+
+/* ---------- Tabs ---------- */
+$("tabs").addEventListener("click", (ev) => {
+  const btn = ev.target.closest(".tab");
+  if (!btn) return;
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  btn.classList.add("active");
+  tipoActual = btn.dataset.tipo;
+  $("camposGanado").style.display = tipoActual === "Ganado" ? "" : "none";
+  $("camposHerramientas").style.display = tipoActual === "Herramientas" ? "" : "none";
+  cargarProximoLote();
+  ocultarError();
+});
+
+/* ---------- Próximo número de lote sugerido ---------- */
+function cargarProximoLote(){
+  $("loteHint").textContent = "Buscando el próximo número disponible…";
+  fetch(SCRIPT_URL + "?accion=proximoLote&hoja=" + encodeURIComponent(tipoActual))
+    .then(r => r.json())
+    .then(d => {
+      if (d.success){
+        $("fLote").value = d.proximoLote;
+        $("loteHint").textContent = "Sugerido automáticamente — lo podés cambiar.";
+      } else {
+        $("loteHint").textContent = "No se pudo sugerir un número, escribilo a mano.";
+      }
+    })
+    .catch(() => {
+      $("loteHint").textContent = "No se pudo sugerir un número, escribilo a mano.";
+    });
+}
+cargarProximoLote();
+
+/* ---------- Compresión de fotos (canvas) ---------- */
+function comprimirImagen(file, maxAncho){
+  return new Promise((resolve) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => { img.src = e.target.result; };
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxAncho){
+        h = Math.round(h * (maxAncho / w));
+        w = maxAncho;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+      resolve({ dataUrl, nombre: (file.name || "foto.jpg").replace(/\.[^.]+$/, ".jpg") });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function dataUrlABase64(dataUrl){
+  return dataUrl.split(",")[1];
+}
+
+/* ---------- Fotos ---------- */
+$("fotosBox").addEventListener("click", () => $("fotosInput").click());
+$("fotosInput").addEventListener("change", async (ev) => {
+  const files = Array.from(ev.target.files || []);
+  for (const file of files){
+    const { dataUrl, nombre } = await comprimirImagen(file, 1600);
+    fotosArchivos.push({ nombre, mimeType: "image/jpeg", base64: dataUrlABase64(dataUrl), preview: dataUrl });
+  }
+  ev.target.value = "";
+  renderFotosThumbs();
+});
+
+function renderFotosThumbs(){
+  const cont = $("fotosThumbs");
+  cont.innerHTML = "";
+  $("fotosBox").classList.toggle("has-files", fotosArchivos.length > 0);
+  fotosArchivos.forEach((f, i) => {
+    const div = document.createElement("div");
+    div.className = "thumb";
+    div.innerHTML = `<img src="${f.preview}"><button type="button" class="rm" data-i="${i}">✕</button>`;
+    cont.appendChild(div);
+  });
+}
+$("fotosThumbs").addEventListener("click", (ev) => {
+  const btn = ev.target.closest(".rm");
+  if (!btn) return;
+  fotosArchivos.splice(Number(btn.dataset.i), 1);
+  renderFotosThumbs();
+});
+
+/* ---------- Video ---------- */
+$("videoBox").addEventListener("click", (ev) => {
+  if (ev.target.closest(".rm")) return;
+  $("videoInput").click();
+});
+$("videoInput").addEventListener("change", (ev) => {
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = "";
+  if (!file) return;
+
+  const MAX_BYTES = 35 * 1024 * 1024; // ~35MB
+  if (file.size > MAX_BYTES){
+    mostrarError("Ese video pesa mucho (" + Math.round(file.size/1024/1024) + "MB). Grabá uno más corto (10-15 segundos) o bajá la calidad de la cámara.");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    videoArchivo = {
+      nombre: file.name || "video.mp4",
+      mimeType: file.type || "video/mp4",
+      base64: e.target.result.split(",")[1],
+      preview: URL.createObjectURL(file)
+    };
+    renderVideoThumb();
+  };
+  reader.readAsDataURL(file);
+});
+
+function renderVideoThumb(){
+  const cont = $("videoThumbs");
+  $("videoBox").classList.toggle("has-files", !!videoArchivo);
+  if (!videoArchivo){ cont.innerHTML = ""; return; }
+  cont.innerHTML = `<div class="thumb"><video src="${videoArchivo.preview}" muted></video><button type="button" class="rm" id="rmVideo">✕</button></div>`;
+}
+$("videoThumbs").addEventListener("click", (ev) => {
+  if (ev.target.id === "rmVideo"){
+    videoArchivo = null;
+    renderVideoThumb();
+  }
+});
+
+/* ---------- Error box ---------- */
+function mostrarError(msg){
+  const box = $("errorBox");
+  box.textContent = msg;
+  box.classList.add("show");
+  box.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function ocultarError(){
+  $("errorBox").classList.remove("show");
+}
+
+/* ---------- Envío ---------- */
+$("loteForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  ocultarError();
+
+  const lote = $("fLote").value.trim();
+  if (!lote){
+    mostrarError("Falta el número de lote.");
+    return;
+  }
+
+  const datos = { lote };
+  if (tipoActual === "Ganado"){
+    datos.categoria = $("gCategoria").value.trim();
+    datos.raza = $("gRaza").value.trim();
+    datos.cabezas = $("gCabezas").value.trim();
+    datos.peso = $("gPeso").value.trim();
+    datos.ubicacion = $("gUbicacion").value.trim();
+    datos.comentario = $("gComentario").value.trim();
+  } else {
+    datos.nombre = $("hNombre").value.trim();
+    datos.descripcion = $("hDescripcion").value.trim();
+  }
+  datos.base = $("fBase").value.trim();
+  datos.destacado = $("fDestacado").checked;
+
+  const payload = {
+    accion: "nuevoLote",
+    hoja: tipoActual,
+    datos,
+    fotos: fotosArchivos.map(f => ({ nombre: f.nombre, mimeType: f.mimeType, base64: f.base64 })),
+  };
+  if (videoArchivo){
+    payload.video = { nombre: videoArchivo.nombre, mimeType: videoArchivo.mimeType, base64: videoArchivo.base64 };
+  }
+
+  const btn = $("submitBtn");
+  btn.disabled = true;
+  btn.classList.add("loading");
+  $("progressNote").textContent = videoArchivo ? "Subiendo video y datos, puede tardar un poco…" : "Publicando lote…";
+
+  try {
+    const resp = await fetch(SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+
+    if (!data.success){
+      mostrarError(data.message || "No se pudo publicar el lote.");
+      btn.disabled = false;
+      btn.classList.remove("loading");
+      $("progressNote").textContent = "";
+      return;
+    }
+
+    let detalle = "Ya está disponible en la web.";
+    if (payload.video && !data.videoSubido){
+      detalle = "Se publicó, pero el video no se pudo subir automáticamente todavía. Avisale a quien armó la web para revisar la conexión con GitHub.";
+    }
+    $("successDetail").textContent = detalle;
+    $("btnVerWeb").href = SITE_URLS[tipoActual];
+    $("loteForm").style.display = "none";
+    $("successScreen").classList.add("show");
+
+  } catch (err) {
+    mostrarError("No se pudo conectar. Revisá tu conexión a internet e intentá de nuevo.");
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove("loading");
+    $("progressNote").textContent = "";
+  }
+});
+
+/* ---------- Cargar otro lote ---------- */
+$("btnOtroLote").addEventListener("click", () => {
+  $("loteForm").reset();
+  fotosArchivos = [];
+  videoArchivo = null;
+  renderFotosThumbs();
+  renderVideoThumb();
+  $("successScreen").classList.remove("show");
+  $("loteForm").style.display = "";
+  cargarProximoLote();
+});
+</script>
+</body>
+</html>
