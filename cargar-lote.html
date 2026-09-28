@@ -86,6 +86,27 @@
   }
   .tab:active{ transform:scale(.98); }
 
+  .lote-row{
+    display:flex;
+    gap:8px;
+  }
+  .lote-row input{ flex:1; }
+  .btn-buscar{
+    flex-shrink:0;
+    padding:0 18px;
+    border:none;
+    border-radius:10px;
+    background:var(--olive-900);
+    color:#fff;
+    font-family:'Inter', sans-serif;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    transition:background .15s ease-out, transform .12s ease-out;
+  }
+  .btn-buscar:hover{ background:var(--olive-800); }
+  .btn-buscar:active{ transform:scale(.96); }
+
   /* ---------- Card / form ---------- */
   .card{
     background:var(--card);
@@ -380,13 +401,21 @@
       <button type="button" class="tab" data-tipo="Herramientas">🔧 Herramientas</button>
     </div>
 
+    <div class="tabs" id="modo">
+      <button type="button" class="tab active" data-modo="nuevo">➕ Cargar nuevo</button>
+      <button type="button" class="tab" data-modo="editar">✏️ Editar existente</button>
+    </div>
+
     <div class="error-box" id="errorBox"></div>
 
     <form id="loteForm" class="card">
 
       <div class="field">
         <label for="fLote">Número de lote</label>
-        <input type="number" id="fLote" min="1" required>
+        <div class="lote-row">
+          <input type="number" id="fLote" min="1" required>
+          <button type="button" class="btn-buscar" id="btnBuscarLote" style="display:none">Buscar</button>
+        </div>
         <span class="hint" id="loteHint">Buscando el próximo número disponible…</span>
       </div>
 
@@ -435,6 +464,7 @@
             <span class="filebox-label">📷 Tocá para elegir fotos de la galería</span>
             <div class="thumbs" id="fotosThumbs"></div>
           </div>
+          <span class="hint" id="fotosEditHint" style="display:none"></span>
         </div>
       </div>
 
@@ -456,6 +486,7 @@
           <div class="thumbs" id="videoThumbs"></div>
         </div>
         <span class="hint">Mejor cortito (10-15 segundos) para que suba rápido. Si el video pesa mucho, va a tardar más o puede fallar — probá con Wi-Fi si podés.</span>
+        <span class="hint" id="videoEditHint" style="display:none"></span>
       </div>
 
       <button type="submit" class="submit-btn" id="submitBtn">
@@ -468,10 +499,10 @@
 
     <div class="success-screen" id="successScreen">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
-      <h2>¡Lote publicado!</h2>
+      <h2 id="successTitle">¡Lote publicado!</h2>
       <p id="successDetail">Ya está disponible en la web.</p>
       <div class="success-actions">
-        <button type="button" class="btn-primary" id="btnOtroLote">Cargar otro lote</button>
+        <button type="button" class="btn-primary" id="btnOtroLote">Volver al inicio</button>
         <a class="btn-secondary" id="btnVerWeb" href="#" target="_blank" rel="noopener">Ver en la web</a>
       </div>
     </div>
@@ -490,6 +521,8 @@ const SITE_URLS = {
 };
 
 let tipoActual = "Ganado";
+let modoActual = "nuevo";
+let loteEncontrado = false;
 let fotosArchivos = [];   // [{nombre, mimeType, base64}]
 let videoArchivo = null;  // {nombre, mimeType, base64}
 
@@ -527,21 +560,117 @@ $("lockForm").addEventListener("submit", (ev) => {
 function mostrarApp(){
   $("lockScreen").style.display = "none";
   $("appContent").style.display = "";
-  cargarProximoLote();
+  reiniciarCampos();
 }
 
-/* ---------- Tabs ---------- */
+/* ---------- Tabs: Ganado / Herramientas ---------- */
 $("tabs").addEventListener("click", (ev) => {
   const btn = ev.target.closest(".tab");
   if (!btn) return;
-  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  $("tabs").querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
   btn.classList.add("active");
   tipoActual = btn.dataset.tipo;
   $("camposGanado").style.display = tipoActual === "Ganado" ? "" : "none";
   $("camposHerramientas").style.display = tipoActual === "Herramientas" ? "" : "none";
-  cargarProximoLote();
+  reiniciarCampos();
   ocultarError();
 });
+
+/* ---------- Tabs: Cargar nuevo / Editar existente ---------- */
+$("modo").addEventListener("click", (ev) => {
+  const btn = ev.target.closest(".tab");
+  if (!btn) return;
+  $("modo").querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  btn.classList.add("active");
+  modoActual = btn.dataset.modo;
+  reiniciarCampos();
+  ocultarError();
+});
+
+function reiniciarCampos(){
+  loteEncontrado = false;
+  fotosArchivos = [];
+  videoArchivo = null;
+  renderFotosThumbs();
+  renderVideoThumb();
+  $("fotosEditHint").style.display = "none";
+  $("videoEditHint").style.display = "none";
+  $("loteForm").reset();
+
+  if (modoActual === "editar"){
+    $("btnBuscarLote").style.display = "";
+    $("fLote").value = "";
+    $("loteHint").textContent = "Escribí el número de lote y tocá \"Buscar\".";
+    $("submitBtn").querySelector(".btn-text").textContent = "Guardar cambios";
+  } else {
+    $("btnBuscarLote").style.display = "none";
+    $("submitBtn").querySelector(".btn-text").textContent = "Publicar lote";
+    cargarProximoLote();
+  }
+}
+
+/* ---------- Buscar lote existente para editar ---------- */
+$("btnBuscarLote").addEventListener("click", async () => {
+  const lote = $("fLote").value.trim();
+  if (!lote){
+    mostrarError("Escribí el número de lote que querés editar.");
+    return;
+  }
+  ocultarError();
+  $("loteHint").textContent = "Buscando el lote " + lote + "…";
+  loteEncontrado = false;
+
+  try {
+    const resp = await fetch(SCRIPT_URL + "?accion=obtenerLote&hoja=" + encodeURIComponent(tipoActual) + "&lote=" + encodeURIComponent(lote));
+    const data = await resp.json();
+    if (!data.success){
+      $("loteHint").textContent = "Escribí el número de lote y tocá \"Buscar\".";
+      mostrarError(data.message || "No se encontró ese lote.");
+      return;
+    }
+
+    const d = data.datos;
+    if (tipoActual === "Ganado"){
+      $("gCategoria").value = d.categoria || "";
+      $("gRaza").value = d.raza || "";
+      $("gCabezas").value = d.cabezas || "";
+      $("gPeso").value = d.peso || "";
+      $("gUbicacion").value = d.ubicacion || "";
+      $("gComentario").value = d.comentario || "";
+    } else {
+      $("hNombre").value = d.nombre || "";
+      $("hDescripcion").value = d.descripcion || "";
+    }
+    $("fBase").value = d.base || "";
+    $("fDestacado").checked = esVerdadero(d.destacado);
+
+    const cantFotos = String(d.fotos || "").split(",").map(s => s.trim()).filter(Boolean).length;
+    if (cantFotos > 0){
+      $("fotosEditHint").textContent = "Ya tiene " + cantFotos + " foto(s) guardadas. Si elegís fotos nuevas, las reemplazan.";
+      $("fotosEditHint").style.display = "";
+    } else {
+      $("fotosEditHint").style.display = "none";
+    }
+    if (d.video){
+      $("videoEditHint").textContent = "Ya tiene un video guardado. Si elegís uno nuevo, lo reemplaza.";
+      $("videoEditHint").style.display = "";
+    } else {
+      $("videoEditHint").style.display = "none";
+    }
+
+    loteEncontrado = true;
+    $("loteHint").textContent = "Lote encontrado — editá lo que necesites y guardá.";
+  } catch (err) {
+    $("loteHint").textContent = "Escribí el número de lote y tocá \"Buscar\".";
+    mostrarError("No se pudo conectar para buscar el lote. Probá de nuevo.");
+  }
+});
+
+function esVerdadero(v){
+  if (v === true) return true;
+  const s = String(v || "").trim().toLowerCase();
+  return s === "true" || s === "sí" || s === "si" || s === "1";
+}
 
 /* ---------- Próximo número de lote sugerido ---------- */
 function cargarProximoLote(){
@@ -680,6 +809,10 @@ $("loteForm").addEventListener("submit", async (ev) => {
     mostrarError("Falta el número de lote.");
     return;
   }
+  if (modoActual === "editar" && !loteEncontrado){
+    mostrarError("Primero tocá \"Buscar\" para cargar los datos actuales del lote.");
+    return;
+  }
 
   const datos = { lote };
   if (tipoActual === "Ganado"){
@@ -697,7 +830,7 @@ $("loteForm").addEventListener("submit", async (ev) => {
   datos.destacado = $("fDestacado").checked;
 
   const payload = {
-    accion: "nuevoLote",
+    accion: modoActual === "editar" ? "editarLote" : "nuevoLote",
     clave: claveGuardada,
     hoja: tipoActual,
     datos,
@@ -710,7 +843,7 @@ $("loteForm").addEventListener("submit", async (ev) => {
   const btn = $("submitBtn");
   btn.disabled = true;
   btn.classList.add("loading");
-  $("progressNote").textContent = videoArchivo ? "Subiendo video y datos, puede tardar un poco…" : "Publicando lote…";
+  $("progressNote").textContent = videoArchivo ? "Subiendo video y datos, puede tardar un poco…" : (modoActual === "editar" ? "Guardando cambios…" : "Publicando lote…");
 
   try {
     const resp = await fetch(SCRIPT_URL, {
@@ -720,17 +853,18 @@ $("loteForm").addEventListener("submit", async (ev) => {
     const data = await resp.json();
 
     if (!data.success){
-      mostrarError(data.message || "No se pudo publicar el lote.");
+      mostrarError(data.message || "No se pudo guardar el lote.");
       btn.disabled = false;
       btn.classList.remove("loading");
       $("progressNote").textContent = "";
       return;
     }
 
-    let detalle = "Ya está disponible en la web.";
+    let detalle = modoActual === "editar" ? "Los cambios ya están en la web." : "Ya está disponible en la web.";
     if (payload.video && !data.videoSubido){
-      detalle = "Se publicó, pero el video no se pudo subir automáticamente todavía. Avisale a quien armó la web para revisar la conexión con GitHub.";
+      detalle = "Se guardó, pero el video no se pudo subir automáticamente todavía. Avisale a quien armó la web para revisar la conexión con GitHub.";
     }
+    $("successTitle").textContent = modoActual === "editar" ? "¡Cambios guardados!" : "¡Lote publicado!";
     $("successDetail").textContent = detalle;
     $("btnVerWeb").href = SITE_URLS[tipoActual];
     $("loteForm").style.display = "none";
@@ -747,14 +881,9 @@ $("loteForm").addEventListener("submit", async (ev) => {
 
 /* ---------- Cargar otro lote ---------- */
 $("btnOtroLote").addEventListener("click", () => {
-  $("loteForm").reset();
-  fotosArchivos = [];
-  videoArchivo = null;
-  renderFotosThumbs();
-  renderVideoThumb();
   $("successScreen").classList.remove("show");
   $("loteForm").style.display = "";
-  cargarProximoLote();
+  reiniciarCampos();
 });
 </script>
 </body>
