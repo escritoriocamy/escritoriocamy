@@ -1424,6 +1424,16 @@
     <img id="remateLightboxImg" src="" alt="">
   </div>
 
+  <!-- ===== Asistente de chat ===== -->
+  <button type="button" class="chat-fab" id="chatFab" aria-label="Abrir asistente">💬</button>
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-head">
+      <span>Asistente Escritorio Camy</span>
+      <button type="button" id="chatClose" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+  </div>
+
 <script>
 /* Número de WhatsApp del escritorio (Roger) y de Álvaro (herramientas) */
 const WHATSAPP_NUMBER = "59899342965";
@@ -1842,16 +1852,6 @@ document.getElementById('remateLightbox').addEventListener('click', (e) => {
 })();
 
 </script>
-
-  <!-- ===== Asistente de chat ===== -->
-  <button type="button" class="chat-fab" id="chatFab" aria-label="Abrir asistente">💬</button>
-  <div class="chat-panel" id="chatPanel">
-    <div class="chat-head">
-      <span>Asistente Escritorio Camy</span>
-      <button type="button" id="chatClose" aria-label="Cerrar">✕</button>
-    </div>
-    <div class="chat-body" id="chatBody"></div>
-  </div>
 
 </body>
 
