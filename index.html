@@ -2701,7 +2701,7 @@ document.getElementById('remateLightbox').addEventListener('click', (e) => {
    MOVIMIENTO CON EL SCROLL — Escritorio Camy
    - Los elementos crecen al llegar al centro de la pantalla
    - Se achican y se desvanecen un poco al irse para arriba
-   - Algunos entran desde la izquierda o la derecha
+   - Entran subiendo suavemente desde abajo (sin movimiento de costado)
    - En computadora, desplazamiento suave con inercia (Lenis)
    Para sacarlo, borrar este bloque <script>.
    ========================================================= */
@@ -2789,7 +2789,7 @@ document.getElementById('remateLightbox').addEventListener('click', (e) => {
     var s = g.escala ? (tope - 0.08 * (1 - cerca) - 0.08 * saliendo) : 1;
     if (g.escala && r.height > vh * 0.8) s = 1 + (s - 1) * 0.4;       // bloques muy altos: menos zoom
     return {
-      x: lado * dist * suave,
+      x: 0,                                                            // sin movimiento de costado (mareaba)
       y: 60 * suave - 30 * saliendo,
       s: s,
       o: 1 - 0.9 * suave - 0.35 * saliendo
