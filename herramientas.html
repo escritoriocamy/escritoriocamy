@@ -2338,7 +2338,20 @@ function buildToolWaMessage(t){
 }
 
 /* Link directo al lote dentro de la web (ej: .../ganado.html?lote=11) */
+/* Si el lote tiene su página para compartir (con su foto, creada por el script en /l/),
+   se comparte esa; si no, el link directo al lote. */
+const HOJA_COMPARTIR = 'herramientas';
+let PAGINAS_COMPARTIR = null;
+fetch('l/lotes.json', { cache: 'no-cache' })
+  .then(r => r.ok ? r.json() : null)
+  .then(j => { PAGINAS_COMPARTIR = j; })
+  .catch(() => {});
+
 function linkDelLote(lote){
+  const lista = (PAGINAS_COMPARTIR && PAGINAS_COMPARTIR[HOJA_COMPARTIR]) || [];
+  if(lista.map(String).indexOf(String(lote)) !== -1){
+    return new URL('l/' + HOJA_COMPARTIR + '-' + String(lote).replace(/[^\w-]/g, '_') + '.html', location.href).href;
+  }
   return location.origin + location.pathname + '?lote=' + encodeURIComponent(lote || '');
 }
 
@@ -2346,11 +2359,16 @@ function linkDelLote(lote){
    mensajes, copiar link…). Si el navegador no lo tiene, abre WhatsApp con el mensaje. */
 document.addEventListener('click', function(e){
   const a = e.target.closest('a.lot-whatsapp-outline[href^="https://wa.me/?text="]');
-  if(!a || !navigator.share) return;
-  e.preventDefault();
+  if(!a) return;
   const texto = decodeURIComponent(a.href.split('?text=')[1] || '');
   const partes = texto.split('\n');
-  const url = partes.pop();
+  let url = partes.pop();
+  // Recalcular el link por si la lista de páginas para compartir cargó después
+  const m = url.match(/[?&]lote=([^&#]+)/) || url.match(/\/l\/[a-z]+-([^/]+)\.html/);
+  if(m) url = linkDelLote(decodeURIComponent(m[1]));
+  a.href = 'https://wa.me/?text=' + encodeURIComponent(partes.join('\n') + '\n' + url);
+  if(!navigator.share) return;   // sin menú de compartir: sigue al link de WhatsApp
+  e.preventDefault();
   navigator.share({ title: 'Escritorio Camy', text: partes.join('\n'), url: url })
     .catch(function(err){ if(err && err.name !== 'AbortError') window.open(a.href, '_blank'); });
 });
