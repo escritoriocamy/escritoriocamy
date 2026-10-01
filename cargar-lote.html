@@ -252,6 +252,24 @@
   .submit-btn.loading .btn-text{ display:none; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
+  /* ---------- Lista de subidas (se suben solas mientras cargás el siguiente) ---------- */
+  .cola{ display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+  .cola:empty{ display:none; }
+  .cola-titulo{ font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); }
+  .cola-item{ background:var(--card); border-radius:12px; padding:11px 13px; box-shadow:0 1px 4px rgba(28,46,31,.08); font-size:13.5px; }
+  .cola-item .fila{ display:flex; align-items:center; gap:8px; }
+  .cola-item .nombre{ font-weight:700; color:var(--olive-900); flex:1; min-width:0; }
+  .cola-item .estado{ color:var(--ink-soft); font-size:12.5px; margin-top:3px; }
+  .cola-item .barra{ height:5px; border-radius:99px; background:#e2e9df; overflow:hidden; margin-top:7px; }
+  .cola-item .barra span{ display:block; height:100%; width:0; background:var(--gold-600); transition:width .4s ease; }
+  .cola-item.subiendo .barra span{ width:40% !important; animation:colaCarga 1.2s ease-in-out infinite; }
+  @keyframes colaCarga{ 0%{ transform:translateX(-100%); } 100%{ transform:translateX(250%); } }
+  .cola-item.listo{ background:#eef6ef; }
+  .cola-item.listo .barra, .cola-item.error .barra{ display:none; }
+  .cola-item.error{ background:#fbeaea; }
+  .cola-item.error .estado{ color:var(--danger); }
+  .cola-item button{ border:none; border-radius:8px; padding:6px 10px; font:700 12.5px 'Inter',sans-serif; background:var(--olive-900); color:#fff; cursor:pointer; }
+  .cola-item .cerrar{ background:transparent; color:var(--ink-soft); padding:2px 6px; font-size:15px; }
   .progress-bar{ height:8px; border-radius:99px; background:#e2e9df; overflow:hidden; margin-top:12px; display:none; }
   .progress-bar.show{ display:block; }
   .progress-bar span{ display:block; height:100%; width:0; background:var(--gold-600); border-radius:99px; transition:width .4s ease; }
@@ -489,6 +507,7 @@
       <button type="button" class="tab" data-modo="lista">📋 Todos los lotes</button>
     </div>
 
+    <div class="cola" id="colaSubidas"></div>
     <div class="error-box" id="errorBox"></div>
 
     <form id="loteForm" class="card">
@@ -947,7 +966,9 @@ function cargarProximoLote(){
     .then(r => r.json())
     .then(d => {
       if (d.success){
-        $("fLote").value = d.proximoLote;
+        const enLista = cola.filter(j => j.tipo === tipoActual && j.modo === "nuevo" && j.estado !== "error")
+          .map(j => parseInt(j.lote, 10)).filter(n => !isNaN(n));
+        $("fLote").value = Math.max(Number(d.proximoLote) || 0, ...enLista.map(n => n + 1));
         $("loteHint").textContent = "Sugerido automáticamente — lo podés cambiar.";
       } else {
         $("loteHint").textContent = "No se pudo sugerir un número, escribilo a mano.";
@@ -1404,7 +1425,36 @@ function mostrarExito(detalle){
 }
 
 /* ---------- Envío ---------- */
-$("loteForm").addEventListener("submit", async (ev) => {
+/* ---------- Lista de subidas: Publicar no hace esperar ---------- */
+const cola = [];
+let colaCorriendo = false, colaPantalla = null;
+
+function renderCola(){
+  const cont = $("colaSubidas");
+  const visibles = cola.filter(j => !j.oculto);
+  if (!visibles.length){ cont.innerHTML = ""; return; }
+  cont.innerHTML = '<div class="cola-titulo">Subidas</div>' + visibles.map(j => {
+    const icono = j.estado === "listo" ? "✓" : j.estado === "error" ? "⚠️" : j.estado === "esperando" ? "⏳" : "⬆️";
+    const accion = j.estado === "error" ? `<button type="button" data-reintentar="${j.id}">Reintentar</button>`
+      : j.estado === "listo" ? `<button type="button" class="cerrar" data-ocultar="${j.id}" aria-label="Ocultar">✕</button>` : "";
+    return `<div class="cola-item ${j.estado}">
+      <div class="fila"><span class="nombre">${icono} ${j.etiqueta}</span>${accion}</div>
+      <div class="estado">${j.mensaje || ""}</div>
+      <div class="barra"><span style="width:${Math.round((j.fr || 0) * 100)}%"></span></div>
+    </div>`;
+  }).join("");
+}
+$("colaSubidas").addEventListener("click", (ev) => {
+  const r = ev.target.closest("[data-reintentar]");
+  const o = ev.target.closest("[data-ocultar]");
+  if (r){ const j = cola.find(x => x.id === r.dataset.reintentar); if (j){ j.estado = "esperando"; j.mensaje = "En espera…"; renderCola(); procesarCola(); } }
+  if (o){ const j = cola.find(x => x.id === o.dataset.ocultar); if (j){ j.oculto = true; renderCola(); } }
+});
+window.addEventListener("beforeunload", (e) => {
+  if (cola.some(j => j.estado !== "listo" && j.estado !== "error")){ e.preventDefault(); e.returnValue = ""; }
+});
+
+$("loteForm").addEventListener("submit", (ev) => {
   ev.preventDefault();
   ocultarError();
 
@@ -1419,6 +1469,10 @@ $("loteForm").addEventListener("submit", async (ev) => {
   }
   if (modoActual === "editar" && !loteEncontrado){
     mostrarError("Primero tocá \"Buscar\" para cargar los datos actuales del lote.");
+    return;
+  }
+  if (cola.some(j => j.tipo === tipoActual && j.lote === lote && j.estado !== "listo" && j.estado !== "error")){
+    mostrarError("El lote " + lote + " ya está en la lista de subidas.");
     return;
   }
 
@@ -1437,116 +1491,119 @@ $("loteForm").addEventListener("submit", async (ev) => {
   datos.base = $("fBase").value.trim();
   datos.destacado = $("fDestacado").checked;
 
-  const payload = {
-    accion: modoActual === "editar" ? "editarLote" : "nuevoLote",
-    clave: claveGuardada,
-    hoja: tipoActual,
-    datos,
-    fotos: fotosArchivos.map(f => ({ nombre: f.nombre, mimeType: f.mimeType, base64: f.base64 })),
+  const nombreLote = tipoActual === "Ganado" ? (datos.categoria || "Ganado") : (datos.nombre || "Herramienta");
+  const trabajo = {
+    id: "t" + Date.now(),
+    tipo: tipoActual,
+    modo: modoActual,
+    lote,
+    etiqueta: "Lote " + lote + " · " + nombreLote,
+    estado: "esperando",
+    mensaje: "En espera…",
+    fr: 0,
+    payload: {
+      accion: modoActual === "editar" ? "editarLote" : "nuevoLote",
+      clave: claveGuardada,
+      hoja: tipoActual,
+      datos,
+      fotos: fotosArchivos.map(f => ({ nombre: f.nombre, mimeType: f.mimeType, base64: f.base64 }))
+    },
+    video: (videoArchivo && videoArchivo.archivo) ? videoArchivo : null,
+    portadaPromesa: portadaPromesa,
+    portadaExistente: portadaExistente
   };
-  if (portadaPromesa && !(videoArchivo && videoArchivo.portada) && !portadaExistente){
-    $("progressNote").textContent = "Preparando la imagen del video…";
-    await Promise.race([portadaPromesa, new Promise(r => setTimeout(r, 8000))]);
+  if (trabajo.video){
+    // Si el video ya se está preparando, el avance se muestra en la lista (no en el formulario nuevo)
+    trabajo.video.alAvanzar = (fr, txt) => {
+      if (trabajo.estado === "esperando" || trabajo.estado === "preparando"){
+        trabajo.mensaje = (txt || "Preparando el video…").replace("🎬 ", "");
+        trabajo.fr = fr;
+        renderCola();
+      }
+    };
   }
-  const portada = (videoArchivo && videoArchivo.portada) || (!videoArchivo && portadaExistente) || null;
+  cola.push(trabajo);
+  renderCola();
+
+  // Formulario libre para el siguiente lote
+  reiniciarCampos();
+  $("progressNote").textContent = "✓ Lote " + lote + " agregado a las subidas. Ya podés cargar el siguiente (no cierres esta página hasta que terminen).";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  procesarCola();
+});
+
+async function procesarCola(){
+  if (colaCorriendo) return;
+  colaCorriendo = true;
+  try { if (navigator.wakeLock && !colaPantalla) colaPantalla = await navigator.wakeLock.request("screen"); } catch (e) {}
+  let j;
+  while ((j = cola.find(x => x.estado === "esperando"))){
+    await procesarTrabajo(j);
+    renderCola();
+  }
+  try { if (colaPantalla){ colaPantalla.release(); colaPantalla = null; } } catch (e) {}
+  colaCorriendo = false;
+}
+
+async function procesarTrabajo(j){
+  const act = (estado, mensaje, fr) => { j.estado = estado; j.mensaje = mensaje; if (fr !== undefined) j.fr = fr; renderCola(); };
+  const payload = Object.assign({}, j.payload);
+
+  // 1) Video: achicarlo si hace falta
+  if (j.video && !j.video.base64){
+    act("preparando", "Preparando el video…", 0);
+    j.video.alAvanzar = (fr, txt) => act("preparando", (txt || "Preparando el video…").replace("🎬 ", ""), fr);
+    try {
+      const listo = await prepararVideoParaWeb(j.video);
+      j.video.base64 = await leerBase64(listo.blob);
+      j.video.nombreFinal = listo.nombre;
+      j.video.mimeFinal = listo.mimeType;
+      j.video.mbFinal = Math.max(1, Math.round(listo.blob.size / 1048576));
+    } catch (err) {
+      act("error", err.message || "No se pudo preparar el video.");
+      return;
+    }
+  }
+  if (j.video && j.video.base64){
+    payload.video = { nombre: j.video.nombreFinal, mimeType: j.video.mimeFinal, base64: j.video.base64 };
+  }
+
+  // 2) Portada del video (para WhatsApp y la web)
+  if (j.portadaPromesa && !(j.video && j.video.portada) && !j.portadaExistente){
+    const img = await Promise.race([j.portadaPromesa, new Promise(r => setTimeout(() => r(null), 8000))]);
+    if (!j.video && img) j.portadaExistente = img;
+  }
+  const portada = (j.video && j.video.portada) || (!j.video && j.portadaExistente) || null;
   if (portada) payload.portada = { base64: dataUrlABase64(portada) };
 
-  const btn = $("submitBtn");
-  btn.disabled = true;
-  btn.classList.add("loading");
-
-  // Video: se prepara (achica) en el celular y se sube a la web, como antes
-  if (videoArchivo && videoArchivo.archivo && !videoArchivo.base64){
-    let pantalla = null;
-    try { if (navigator.wakeLock) pantalla = await navigator.wakeLock.request("screen"); } catch (e) {}
-    const barra = $("progressBar");
-    barra.classList.add("show");
-    videoArchivo.alAvanzar = (fr, aviso) => {
-      barra.querySelector("span").style.width = Math.round(fr * 100) + "%";
-      $("progressNote").textContent = aviso || "";
-    };
-    try {
-      const listo = await prepararVideoParaWeb(videoArchivo);
-      videoArchivo.alAvanzar(1, "✓ Video listo (" + Math.max(1, Math.round(listo.blob.size / 1048576)) + " MB). Subiendo…");
-      videoArchivo.base64 = await leerBase64(listo.blob);
-      videoArchivo.nombreFinal = listo.nombre;
-      videoArchivo.mimeFinal = listo.mimeType;
-    } catch (err) {
-      mostrarError(err.message || "No se pudo preparar el video.");
-      btn.disabled = false;
-      btn.classList.remove("loading");
-      try { if (pantalla) pantalla.release(); } catch (e) {}
-      return;
-    }
-    try { if (pantalla) pantalla.release(); } catch (e) {}
-  }
-  if (videoArchivo && videoArchivo.base64){
-    payload.video = { nombre: videoArchivo.nombreFinal, mimeType: videoArchivo.mimeFinal, base64: videoArchivo.base64 };
-    $("progressNote").textContent = "Subiendo video y datos…";
-  }
-  if (!(videoArchivo && videoArchivo.archivo)) $("progressNote").textContent = modoActual === "editar" ? "Guardando cambios…" : "Publicando lote…";
-
+  // 3) Enviar
+  act("subiendo", payload.video ? "Subiendo (" + (j.video.mbFinal || "") + " MB)…" : "Guardando…");
+  let data;
   try {
-    const ctrl = new AbortController();
-    const corte = setTimeout(() => ctrl.abort(), 120000);   // 2 minutos como máximo
-    let data;
-    try {
-      const resp = await fetch(SCRIPT_URL, {
-        method: "POST",
-        body: JSON.stringify(payload),
-        signal: ctrl.signal
-      });
-      data = await resp.json();
-    } finally {
-      clearTimeout(corte);
-    }
-
-    // Si dice "ya existe" pero es el mismo lote que recién mandamos y se cortó, en realidad se guardó
-    const claveEnvio = tipoActual + "|" + lote;
-    if (!data.success && modoActual === "nuevo" && /Ya existe/.test(data.message || "") && ultimoEnvioSinRespuesta === claveEnvio){
-      mostrarExito("Ya había quedado guardado en el intento anterior. Ya está disponible en la web.");
-      return;
-    }
-
-    if (!data.success){
-      mostrarError(data.message || "No se pudo guardar el lote.");
-      btn.disabled = false;
-      btn.classList.remove("loading");
-      $("progressNote").textContent = "";
-      return;
-    }
-
-    let detalle = modoActual === "editar" ? "Los cambios ya están en la web." : "Ya está disponible en la web.";
-    const fotosEnviadas = payload.fotos.length;
-    if (fotosEnviadas){
-      const subidas = Number(data.fotosSubidas || 0);
-      detalle += subidas >= fotosEnviadas
-        ? (subidas > 1 ? " Se subieron " + subidas + " fotos." : " Se subió 1 foto.")
-        : " ⚠️ Solo se subieron " + subidas + " de " + fotosEnviadas + " fotos.";
-    }
-    if (payload.video && !data.videoSubido){
-      detalle += " El video no se pudo subir automáticamente todavía. Avisale a quien armó la web para revisar la conexión con GitHub.";
-    }
-    mostrarExito(detalle);
-
+    data = await llamarScript(payload, 180000);
   } catch (err) {
-    // La respuesta no llegó (lento o se cortó). Nos fijamos si igual se guardó.
-    $("progressNote").textContent = "Tardó en responder… revisando si se guardó";
-    const guardado = modoActual === "nuevo" ? await loteQuedoGuardado(tipoActual, lote) : false;
-    if (guardado){
-      mostrarExito("Se guardó bien (tardó un poco en responder). Ya está disponible en la web.");
-    } else {
-      ultimoEnvioSinRespuesta = tipoActual + "|" + lote;
-      mostrarError(modoActual === "editar"
-        ? "Tardó mucho en responder. Esperá un minuto y fijate en la web si se guardaron los cambios antes de volver a intentar."
-        : "Tardó mucho en responder. Probá de nuevo: si ya había quedado guardado, te lo va a confirmar.");
-    }
-  } finally {
-    btn.disabled = false;
-    btn.classList.remove("loading");
-    $("progressNote").textContent = "";
+    const guardado = j.modo === "nuevo" ? await loteQuedoGuardado(j.tipo, j.lote) : false;
+    if (guardado){ act("listo", "Publicado ✓ (tardó en responder, pero quedó guardado)"); return; }
+    j.sinRespuesta = true;
+    act("error", "Tardó mucho en responder. Tocá Reintentar: si ya había quedado guardado, te lo confirma.");
+    return;
   }
-});
+  if (!data || !data.success){
+    if (j.modo === "nuevo" && j.sinRespuesta && /Ya existe/.test((data && data.message) || "")){
+      act("listo", "Publicado ✓ (había quedado guardado en el intento anterior)"); return;
+    }
+    act("error", (data && data.message) || "No se pudo guardar el lote.");
+    return;
+  }
+  let msg = j.modo === "editar" ? "Cambios guardados ✓" : "Publicado ✓";
+  const nFotos = j.payload.fotos.length;
+  if (nFotos){
+    const subidas = Number(data.fotosSubidas || 0);
+    msg += subidas >= nFotos ? " · " + subidas + (subidas > 1 ? " fotos" : " foto") : " · ⚠️ solo " + subidas + " de " + nFotos + " fotos";
+  }
+  if (payload.video) msg += data.videoSubido ? " · el video aparece en la web en 2-3 minutos" : " · ⚠️ el video no se pudo subir";
+  act("listo", msg, 1);
+}
 
 /* ---------- Cargar otro lote ---------- */
 $("btnOtroLote").addEventListener("click", () => {
