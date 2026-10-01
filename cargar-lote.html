@@ -270,6 +270,12 @@
   .cola-item.error .estado{ color:var(--danger); }
   .cola-item button{ border:none; border-radius:8px; padding:6px 10px; font:700 12.5px 'Inter',sans-serif; background:var(--olive-900); color:#fff; cursor:pointer; }
   .cola-item .cerrar{ background:transparent; color:var(--ink-soft); padding:2px 6px; font-size:15px; }
+  .btn-volver-web{
+    display:block; text-align:center; margin-top:14px; padding:13px;
+    border-radius:12px; background:#e2e9df; color:var(--olive-900);
+    font:700 14.5px 'Inter', sans-serif; text-decoration:none;
+  }
+  .btn-volver-web:active{ transform:scale(.98); }
   .progress-bar{ height:8px; border-radius:99px; background:#e2e9df; overflow:hidden; margin-top:12px; display:none; }
   .progress-bar.show{ display:block; }
   .progress-bar span{ display:block; height:100%; width:0; background:var(--gold-600); border-radius:99px; transition:width .4s ease; }
@@ -597,6 +603,7 @@
       </button>
       <div class="progress-bar" id="progressBar"><span></span></div>
       <div class="progress-note" id="progressNote"></div>
+      <a class="btn-volver-web" id="btnVolverWeb" href="ganado.html">← Volver a la web</a>
 
     </form>
 
@@ -689,6 +696,7 @@ $("tabs").addEventListener("click", (ev) => {
   $("tabs").querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
   btn.classList.add("active");
   tipoActual = btn.dataset.tipo;
+  $("btnVolverWeb").href = tipoActual === "Herramientas" ? "herramientas.html" : "ganado.html";
   $("camposGanado").style.display = tipoActual === "Ganado" ? "" : "none";
   $("camposHerramientas").style.display = tipoActual === "Herramientas" ? "" : "none";
   reiniciarCampos();
