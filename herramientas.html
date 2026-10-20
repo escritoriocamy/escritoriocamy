@@ -2516,11 +2516,13 @@ function render(){
       ? allTools
       : allTools.filter(t => autoCategoria(t.nombre) === activeFilter);
   if(searchTerm){
-    const q = searchTerm.toLowerCase();
-    items = items.filter(t =>
-      String(t.lote || '').toLowerCase().includes(q) ||
-      String(t.nombre || '').toLowerCase().includes(q)
-    );
+    // "camion|trailer" (lo manda el asistente) = cualquiera de esas palabras
+    const sinTildes = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const opciones = sinTildes(searchTerm).split('|').map(s => s.trim()).filter(Boolean);
+    items = items.filter(t => opciones.some(q =>
+      sinTildes(t.lote).includes(q) ||
+      sinTildes(t.nombre).includes(q)
+    ));
   }
   if(!items.length){
     grid.innerHTML = `<div class="status">${searchTerm ? 'No encontramos ninguna herramienta con esa búsqueda.' : 'No hay herramientas cargadas todavía en esta categoría.'}</div>`;
@@ -3280,11 +3282,13 @@ INSTRUCCIONES — Remate de herramientas
     if (tipo === 'Ganado') return filas.map(r => ({
       lote: v(r, 'lote', 'Lote'), categoria: v(r, 'categoria', 'Categoria', 'Categoría'), raza: v(r, 'raza', 'Raza'),
       cabezas: v(r, 'cabezas', 'Cabezas', 'cantidad', 'Cantidad'), peso: v(r, 'peso', 'Peso'),
-      ubicacion: v(r, 'ubicacion', 'Ubicacion', 'Ubicación'), destacado: esVerdadero(v(r, 'destacado', 'Destacado', 'Lote destacado'))
+      ubicacion: v(r, 'ubicacion', 'Ubicacion', 'Ubicación'), destacado: esVerdadero(v(r, 'destacado', 'Destacado', 'Lote destacado')),
+      base: v(r, 'base', 'Base'), oferta: v(r, 'oferta', 'Oferta')
     })).filter(l => l.lote);
     if (tipo === 'Herramientas') return filas.map(r => ({
       lote: v(r, 'lote', 'Lote'), nombre: v(r, 'nombre', 'Nombre', 'herramienta', 'Herramienta'),
-      descripcion: v(r, 'descripcion', 'Descripcion', 'Descripción'), destacado: esVerdadero(v(r, 'destacado', 'Destacado'))
+      descripcion: v(r, 'descripcion', 'Descripcion', 'Descripción'), destacado: esVerdadero(v(r, 'destacado', 'Destacado')),
+      base: v(r, 'base', 'Base'), oferta: v(r, 'oferta', 'Oferta')
     })).filter(t => t.lote);
     return filas.map(r => ({ fecha: v(r, 'fecha', 'Fecha'), titulo: v(r, 'titulo', 'Titulo', 'Título'), detalle: v(r, 'detalle', 'Detalle'), hora: v(r, 'hora', 'Hora') }));
   }
@@ -3533,7 +3537,7 @@ INSTRUCCIONES — Remate de herramientas
   function resultadoHerramientas(cat, lista, textoBuscado){
     conDatos(['Herramientas'], items => {
       const res = lista || items.filter(t => cat === 'Destacados' ? t.destacado : categoriaHerramienta(t.nombre) === cat);
-      const nombre = textoBuscado ? '"' + textoBuscado + '"' : (cat === 'Destacados' ? 'destacadas' : cat);
+      const nombre = textoBuscado ? '"' + textoBuscado.split('|').join(' o ') + '"' : (cat === 'Destacados' ? 'destacadas' : cat);
       if (!res.length){ bot('No encontré herramientas de ' + nombre + '.'); menuHerramientas(); return; }
       bot(res.length === 1 ? 'Encontré 1 herramienta:' : 'Encontré ' + res.length + ' herramientas de ' + nombre + ':');
       opciones([
@@ -3576,12 +3580,18 @@ INSTRUCCIONES — Remate de herramientas
     const anio = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
     return new Date(anio, Number(m[2]) - 1, Number(m[1]), hm ? Number(hm[1]) : 23, hm ? Number(hm[2]) : 59);
   }
-  function proximoRemate(){
+  function proximoRemate(tipo){
     conDatos(['Remates'], remates => {
       const ahora = new Date();
-      const proximos = remates.map(r => Object.assign({ d: aFecha(r.fecha, r.hora) }, r))
+      let proximos = remates.map(r => Object.assign({ d: aFecha(r.fecha, r.hora) }, r))
         .filter(r => r.d && r.d >= new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()))
         .sort((a, b) => a.d - b.d);
+      // Si preguntó por herramientas o por ganado, primero los remates de ese tipo
+      if (typeof tipo === 'string' && tipo){
+        const esHerr = r => /herramient/i.test((r.titulo || '') + ' ' + (r.detalle || ''));
+        const delTipo = proximos.filter(r => tipo === 'herramientas' ? esHerr(r) : !esHerr(r));
+        if (delTipo.length) proximos = delTipo.concat(proximos.filter(r => delTipo.indexOf(r) === -1));
+      }
       if (!proximos.length){
         bot('Todavía no hay una fecha confirmada para el próximo remate. Si querés, consultá directo:');
         opciones([consultar('Ganado', 'Hola ' + WA.Ganado.nombre + ', ¿cuándo es el próximo remate?'), volverMenu]);
@@ -3591,7 +3601,7 @@ INSTRUCCIONES — Remate de herramientas
       const dia = r.d.toLocaleDateString('es-UY', { weekday: 'long', day: 'numeric', month: 'long' });
       bot('📅 El próximo es "' + (r.titulo || 'Remate') + '", el ' + dia + (r.hora ? ' a las ' + r.hora : '') + '.' + (r.detalle ? ' ' + r.detalle : ''));
       if (proximos.length > 1){
-        bot('Después: ' + proximos.slice(1, 3).map(x => (x.titulo || 'Remate') + ' (' + x.fecha + ')').join(', ') + '.');
+        bot('Después: ' + proximos.slice(1).sort((a, b) => a.d - b.d).slice(0, 2).map(x => (x.titulo || 'Remate') + ' (' + x.fecha + ')').join(', ') + '.');
       }
       const herr = /herramient/i.test((r.titulo || '') + ' ' + (r.detalle || ''));
       opciones([
@@ -3629,38 +3639,115 @@ INSTRUCCIONES — Remate de herramientas
   }
 
   /* ---------------- Lo que escribe el cliente ---------------- */
+  const PALABRAS_VACIAS = ['busco', 'buscando', 'quiero', 'quisiera', 'queria', 'necesito', 'para', 'tenes', 'tienen', 'tiene',
+    'tenian', 'hay', 'habra', 'algun', 'alguna', 'algunos', 'algunas', 'una', 'uno', 'unos', 'unas', 'los', 'las', 'del',
+    'con', 'ver', 'que', 'por', 'favor', 'saber', 'info', 'informacion', 'precio', 'precios', 'cuanto', 'cuantos', 'sale',
+    'salen', 'vale', 'valen', 'cuesta', 'cuestan', 'base', 'oferta', 'ofertas', 'esta', 'estan', 'venden', 'vende', 'vendes',
+    'me', 'interesa', 'interesan', 'tendran', 'tendrian', 'disponible', 'disponibles', 'remate', 'lote', 'lotes', 'hola',
+    'buenas', 'buen', 'dia', 'consulta', 'pregunta', 'como', 'donde', 'cual', 'cuales', 'este', 'ese', 'eso', 'esto', 'mas'];
+  const esPregPrecio = t => /\b(cuanto|precio|precios|sale|salen|vale|valen|cuesta|cuestan|base|oferta|ofertaron|va la oferta)\b/.test(t);
+  const plata = v => { const n = Number(String(v || '').replace(/[^0-9.]/g, '')); return n ? 'US$ ' + n.toLocaleString('es-UY') : ''; };
+  function textoPrecio(l, nombre){
+    const partes = [];
+    partes.push(l.base ? 'base ' + plata(l.base) : 'sin precio base');
+    partes.push(l.oferta ? 'oferta actual ' + plata(l.oferta) : 'todavía sin ofertas');
+    return 'Lote ' + l.lote + (nombre ? ' (' + nombre + ')' : '') + ': ' + partes.join(', ') + '.';
+  }
+
+  function dondeEstamos(){
+    bot('📍 Estamos en Luis Batlle Berres 535, San José. Si venís, avisanos antes por WhatsApp así te esperamos.');
+    opciones([
+      { label: '🗺️ Ver en el mapa', link: 'https://www.google.com/maps?q=Luis+Batlle+Berres+535,+San+José,+Uruguay' },
+      consultar('Ganado', 'Hola ' + WA.Ganado.nombre + ', quiero pasar por el escritorio.'),
+      volverMenu
+    ]);
+  }
+  function comoOfertar(){
+    bot('🔧 Herramientas: en la página de herramientas cada lote tiene el botón "Preofertar". Dejás tu nombre, WhatsApp y el monto, y Álvaro te confirma. El día del remate se sigue ofertando en Facebook, comentando la foto del lote.');
+    bot('🐄 Ganado: mirá los lotes en la página de ganado y consultá con Roger para ofertar o comprar.');
+    opciones([
+      { label: '🔧 Ver herramientas', accion: () => { if (pagina === 'herramientas'){ cerrar(); } else { bot('Te llevo…'); setTimeout(() => { location.href = 'herramientas.html'; }, 400); } } },
+      consultar('Herramientas', 'Hola ' + WA.Herramientas.nombre + ', quiero preofertar por un lote.'),
+      consultar('Ganado', 'Hola ' + WA.Ganado.nombre + ', quiero ofertar por un lote de ganado.'),
+      volverMenu
+    ]);
+  }
+  function quieroVender(){
+    bot('¡Bárbaro! Para anotar un lote en el próximo remate escribile al escritorio con fotos y lo que tenés:');
+    opciones([
+      consultar('Herramientas', 'Hola ' + WA.Herramientas.nombre + ', quiero anotar una herramienta/máquina para el remate.', '🔧 Anotar herramienta — ' + WA.Herramientas.nombre),
+      consultar('Ganado', 'Hola ' + WA.Ganado.nombre + ', quiero anotar ganado para el remate.', '🐄 Anotar ganado — ' + WA.Ganado.nombre),
+      volverMenu
+    ]);
+  }
+  function derivar(tema){
+    bot('Eso te lo responde mejor una persona del escritorio (' + tema + '). Escribiles directo:');
+    opciones([
+      consultar('Ganado', 'Hola ' + WA.Ganado.nombre + ', tengo una consulta sobre ' + tema + '.', '🐄 Ganado — ' + WA.Ganado.nombre),
+      consultar('Herramientas', 'Hola ' + WA.Herramientas.nombre + ', tengo una consulta sobre ' + tema + '.', '🔧 Herramientas — ' + WA.Herramientas.nombre),
+      volverMenu
+    ]);
+  }
+
   function interpretar(texto){
-    const t = norm(texto);
-    if (/\b(hola|buenas|buen dia|buenas tardes|buenas noches)\b/.test(t) && t.split(' ').length <= 3){
+    const t = norm(texto).replace(/[¿?¡!.,;:]/g, ' ').replace(/\s+/g, ' ').trim();
+    const cortas = t.split(' ').length <= 3;
+    if (/\b(hola|buenas|buen dia|buenas tardes|buenas noches)\b/.test(t) && cortas){
       bot('¡Hola! ¿Qué estás buscando? Podés escribirme una categoría, una raza o el nombre de una herramienta.');
       menuPrincipal(true); return;
     }
-    if (/\b(gracias|genial|perfecto|dale)\b/.test(t) && t.split(' ').length <= 3){ bot('¡De nada! 🙌'); menuPrincipal(true); return; }
-    if (/remate|cuando|fecha|feria|pantalla|agenda/.test(t)){ proximoRemate(); return; }
-    if (/hablar|persona|whatsapp|telefono|celular|llamar|contacto|humano/.test(t)){ hablar(); return; }
+    if (/\b(gracias|genial|perfecto|dale|ok|joya)\b/.test(t) && cortas){ bot('¡De nada! 🙌'); menuPrincipal(true); return; }
+    if (/\b(direccion|ubicacion|ubicados|como llego|donde (estan|quedan|queda|se encuentran|es el escritorio|esta el escritorio))\b/.test(t)){ dondeEstamos(); return; }
+    if (/\b(vender|vendo|anotar|inscribir|inscribo|consignar|rematar mi|quiero rematar)\b/.test(t)){ quieroVender(); return; }
+    if (/\b(ofertar|oferto|ofertamos|preofert\w*|pujar|pujo|participar|participo|como compro|como comprar|como funciona)\b/.test(t) && !/\d/.test(t)){ comoOfertar(); return; }
+    if (/\b(pago|pagar|pagos|financ|cuotas|transferencia|efectivo|comision|iva|factura)/.test(t)){ derivar('pagos'); return; }
+    if (/\b(flete|envio|enviar|traslado|transporte|entrega|retirar|retiro)\b/.test(t)){ derivar('el retiro y traslado'); return; }
+    if (/\b(hablar|persona|whatsapp|telefono|celular|llamar|contacto|humano|numero de)\b/.test(t)){ hablar(); return; }
+    if (/\b(remate|remates|cuando|fecha|feria|pantalla|agenda|proximo)\b/.test(t) && !esPregPrecio(t) && !/\blote\s*\d/.test(t)){
+      proximoRemate(/herramient|maquin|tractor/.test(t) ? 'herramientas' : /ganado|vacun|feria|pantalla|hacienda|novill|ternero|vaca/.test(t) ? 'ganado' : '');
+      return;
+    }
 
     conDatos(['Ganado', 'Herramientas'], (ganado, herr) => {
-      // Número de lote
-      const num = (t.match(/(?:lote\s*)?(\d{1,4})\b/) || [])[1];
-      if (num && /^\s*(lote\s*)?\d{1,4}\s*$/.test(t)){
+      const precio = esPregPrecio(t);
+
+      // Número de lote (solo, o dentro de una frase: "cuánto sale el lote 4")
+      const mLote = t.match(/\blote\s*(?:n(?:ro|umero|°|º)?\s*)?(\d{1,4})\b/) || t.match(/^\s*(\d{1,4})\s*$/);
+      if (mLote){
+        const num = mLote[1];
         const g = ganado.find(l => String(l.lote) === num);
         const h = herr.find(x => String(x.lote) === num);
-        if (g && h){
+        const quiereGanado = /\b(ganado|vaca|vacas|novillo|ternero|vaquillona|hacienda)/.test(t);
+        const quiereHerr = /\b(herramient|maquina|tractor)/.test(t);
+        const elegido = g && h ? (quiereGanado ? 'g' : quiereHerr ? 'h' : '') : (g ? 'g' : h ? 'h' : '');
+        if (!elegido && g && h){
           bot('El lote ' + num + ' existe en ganado y en herramientas. ¿Cuál querés ver?');
           opciones([{ label: '🐄 Ganado: ' + (g.categoria || 'lote ' + num), accion: () => irALoteGanado(g) },
             { label: '🔧 Herramienta: ' + (h.nombre || 'lote ' + num), accion: () => irALoteHerramienta(h) }, volverMenu]);
           return;
         }
-        if (g){ irALoteGanado(g); return; }
-        if (h){ irALoteHerramienta(h); return; }
-        bot('No encontré el lote ' + num + '.'); menuPrincipal(true); return;
+        if (!elegido){ bot('No encontré el lote ' + num + '. Puede que ya se haya vendido o que el número haya cambiado.'); menuPrincipal(true); return; }
+        if (precio){
+          if (elegido === 'g'){
+            bot('🐄 ' + textoPrecio(g, [g.categoria, g.raza].filter(Boolean).join(' ')));
+            opciones([{ label: '👀 Ver el lote ' + num, accion: () => irALoteGanado(g), principal: true },
+              consultar('Ganado', 'Hola ' + WA.Ganado.nombre + ', me interesa el lote ' + num + ' de ganado.'), volverMenu]);
+          } else {
+            bot('🔧 ' + textoPrecio(h, h.nombre));
+            opciones([{ label: '👀 Ver fotos del lote ' + num, accion: () => irALoteHerramienta(h), principal: true },
+              consultar('Herramientas', 'Hola ' + WA.Herramientas.nombre + ', me interesa el lote ' + num + ' (' + (h.nombre || '') + ').'), volverMenu]);
+          }
+          return;
+        }
+        if (elegido === 'g'){ irALoteGanado(g); return; }
+        irALoteHerramienta(h); return;
       }
 
       // Ganado: categoría y/o raza
       const palabras = t.split(/[^a-z0-9ñ]+/).filter(Boolean);
       const raiz = w => w.replace(/(es|s)$/, '');
       const clavesRaza = RAZAS.flatMap(([, c]) => c);
-      const palabrasCat = palabras.filter(p => !clavesRaza.some(k => p.includes(k)));
+      const palabrasCat = palabras.filter(p => !clavesRaza.some(k => p.includes(k)) && !PALABRAS_VACIAS.includes(p));
       const categorias = [...new Set(ganado.flatMap(categoriasDeLote))];
       const catEncontrada = categorias
         .map(c => ({ c, claves: norm(c).split(' ').filter(w => w.length > 3).map(raiz) }))
@@ -3676,17 +3763,31 @@ INSTRUCCIONES — Remate de herramientas
       }
       if (/\b(ganado|vaca|vacas|hacienda|bovino)\b/.test(t)){ menuGanado(); return; }
 
-      // Herramientas: busca en nombre y descripción
-      const utiles = palabras.filter(w => w.length > 2 && !['busco', 'quiero', 'para', 'tenes', 'tienen', 'hay', 'una', 'uno', 'los', 'las', 'del', 'con', 'ver'].includes(w));
-      if (/herramient/.test(t) && utiles.length <= 1){ menuHerramientas(); return; }
-      const encontradas = herr.filter(x => {
-        const txt = norm(x.nombre + ' ' + x.descripcion);
-        return utiles.length && utiles.every(w => txt.includes(raiz(w)));
-      });
-      if (encontradas.length){ resultadoHerramientas(null, encontradas, texto); return; }
+      // Herramientas: busca por palabras sueltas en nombre y descripción, y ordena por coincidencia
+      const utiles = palabras.filter(w => w.length > 2 && !PALABRAS_VACIAS.includes(w));
+      if (/herramient|maquin/.test(t) && !utiles.some(w => !/herramient|maquin/.test(w))){ menuHerramientas(); return; }
+      const puntaje = x => {
+        const nom = norm(x.nombre), desc = norm(x.descripcion);
+        return utiles.reduce((s, w) => s + (nom.includes(raiz(w)) ? 3 : desc.includes(raiz(w)) ? 1 : 0), 0);
+      };
+      const conPuntos = utiles.length ? herr.map(x => ({ x, p: puntaje(x) })).filter(o => o.p > 0) : [];
+      const mejor = conPuntos.reduce((m, o) => Math.max(m, o.p), 0);
+      const encontradas = conPuntos.filter(o => o.p >= Math.min(mejor, 3)).sort((a, b) => b.p - a.p).map(o => o.x);
+      if (encontradas.length){
+        if (precio){
+          encontradas.slice(0, 6).forEach(x => bot('🔧 ' + textoPrecio(x, x.nombre)));
+          if (encontradas.length > 6) bot('…y ' + (encontradas.length - 6) + ' más.');
+        }
+        resultadoHerramientas(null, encontradas, utiles.map(w => w.replace(/(es|s)$/, '')).join('|'));
+        return;
+      }
 
-      bot('Mmm, no encontré nada con "' + texto + '" 🤔. Probá con una categoría (terneros, vaquillonas…), una raza (Hereford, Angus…) o el nombre de una herramienta.');
-      menuPrincipal(true);
+      bot('No encontré nada con "' + texto + '" 🤔. Probá con el nombre de una herramienta (tractor, sembradora…), una categoría de ganado (terneros, vaquillonas…) o un número de lote. Si preferís, te paso con una persona:');
+      opciones([
+        consultar('Ganado', 'Hola ' + WA.Ganado.nombre + ', ' + texto, '🐄 Preguntarle a ' + WA.Ganado.nombre),
+        consultar('Herramientas', 'Hola ' + WA.Herramientas.nombre + ', ' + texto, '🔧 Preguntarle a ' + WA.Herramientas.nombre),
+        volverMenu
+      ]);
     });
   }
 
